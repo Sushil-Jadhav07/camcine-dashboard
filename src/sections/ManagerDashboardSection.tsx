@@ -23,7 +23,7 @@ import {
 } from 'recharts';
 import type { Section } from '../App';
 
-interface managerDashboardSectionProps {
+interface ManagerDashboardSectionProps {
   onNavigate: (section: Section) => void;
   userId: string;
 }
@@ -123,7 +123,7 @@ const quickActions = [
   { label: 'My Profile', icon: Settings, action: 'settings' as Section },
 ];
 
-export function managerDashboardSection({ onNavigate, userId }: managerDashboardSectionProps) {
+export function ManagerDashboardSection({ onNavigate, userId }: ManagerDashboardSectionProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {

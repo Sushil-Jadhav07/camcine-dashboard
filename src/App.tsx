@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { LoginSection } from './sections/LoginSection';
 import { DashboardSection } from './sections/DashboardSection';
-import { managerDashboardSection } from './sections/managerDashboardSection';
-import { managerEarningsSection } from './sections/managerEarningsSection';
+import { ManagerDashboardSection } from './sections/ManagerDashboardSection';
+import { ManagerEarningsSection } from './sections/ManagerEarningsSection';
 import { ActorPortalSection } from './sections/ActorPortalSection';
 import { ActorQueueSection } from './sections/ActorQueueSection';
 import { SongsSection } from './sections/SongsSection';
@@ -148,7 +148,7 @@ function App() {
         return <LoginSection onLogin={handleLogin} />;
       case 'dashboard':
         if (userRole === 'manager') {
-          return <managerDashboardSection onNavigate={setCurrentSection} userId={userId} />;
+          return <ManagerDashboardSection onNavigate={setCurrentSection} userId={userId} />;
         }
 
         return <DashboardSection onNavigate={setCurrentSection} />;
@@ -205,7 +205,7 @@ function App() {
       case 'analytics':
         return <AnalyticsSection onNavigate={setCurrentSection} />;
       case 'manager-earnings':
-        return <managerEarningsSection userId={userId} />;
+        return <ManagerEarningsSection userId={userId} />;
       case 'notifications':
         return <NotificationsSection onNavigate={setCurrentSection} />;
       default:

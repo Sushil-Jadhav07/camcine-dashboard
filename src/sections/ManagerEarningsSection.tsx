@@ -15,7 +15,7 @@ import {
   Wallet,
 } from 'lucide-react';
 
-interface managerEarningsSectionProps {
+interface ManagerEarningsSectionProps {
   userId: string;
 }
 
@@ -96,7 +96,7 @@ const getStatusBadge = (status: EarningsStatus) => (
   </span>
 );
 
-export function managerEarningsSection({ userId }: managerEarningsSectionProps) {
+export function ManagerEarningsSection({ userId }: ManagerEarningsSectionProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedRange, setSelectedRange] = useState<DateRange>('This Month');
   const [currentPage, setCurrentPage] = useState(1);
