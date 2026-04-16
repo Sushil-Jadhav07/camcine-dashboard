@@ -9,51 +9,74 @@ import {
   ChevronLeft,
   ChevronRight,
   Film,
+  Music,
+  Radio,
   Tv,
   CheckCircle,
   Clock
 } from 'lucide-react';
-import type { Section } from '../App';
+import type { Section, UserRole } from '../App';
 
 interface ContentLibrarySectionProps {
   onNavigate: (section: Section) => void;
+  userRole: UserRole;
+  userId: string;
 }
 
 interface ContentItem {
   id: number;
   title: string;
-  type: 'movie' | 'series';
+  type: 'movie' | 'series' | 'short' | 'song' | 'news-clip';
   genre: string;
   status: 'published' | 'draft' | 'processing';
   updated: string;
   thumbnail: string;
+  vendor_id: string;
   episodes?: number;
+  duration?: string;
+  artist?: string;
+  isLive?: boolean;
 }
 
 const mockContent: ContentItem[] = [
-  { id: 1, title: 'The Midnight Archive', type: 'movie', genre: 'Thriller', status: 'published', updated: '2 hours ago', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop' },
-  { id: 2, title: 'Cyber Chronicles', type: 'series', genre: 'Sci-Fi', status: 'published', updated: '5 hours ago', episodes: 12, thumbnail: 'https://images.unsplash.com/photo-1515630278258-407f66498911?w=200&h=300&fit=crop' },
-  { id: 3, title: 'Echoes of Tomorrow', type: 'movie', genre: 'Drama', status: 'draft', updated: '1 day ago', thumbnail: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=200&h=300&fit=crop' },
-  { id: 4, title: 'Neon Dreams', type: 'series', genre: 'Crime', status: 'processing', updated: '2 days ago', episodes: 8, thumbnail: 'https://images.unsplash.com/photo-1594909122849-11daa2a0cf2b?w=200&h=300&fit=crop' },
-  { id: 5, title: 'The Last Horizon', type: 'movie', genre: 'Adventure', status: 'published', updated: '3 days ago', thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200&h=300&fit=crop' },
-  { id: 6, title: 'Shadow Protocol', type: 'series', genre: 'Action', status: 'draft', updated: '4 days ago', episodes: 10, thumbnail: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=200&h=300&fit=crop' },
-  { id: 7, title: 'Silent Waters', type: 'movie', genre: 'Mystery', status: 'published', updated: '5 days ago', thumbnail: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=200&h=300&fit=crop' },
-  { id: 8, title: 'Urban Legends', type: 'series', genre: 'Horror', status: 'processing', updated: '1 week ago', episodes: 6, thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200&h=300&fit=crop' },
+  { id: 1, title: 'The Midnight Archive', type: 'movie', genre: 'Thriller', status: 'published', updated: '2 hours ago', vendor_id: 'vendor001', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop' },
+  { id: 2, title: 'Cyber Chronicles', type: 'series', genre: 'Sci-Fi', status: 'published', updated: '5 hours ago', vendor_id: 'vendor001', episodes: 12, thumbnail: 'https://images.unsplash.com/photo-1515630278258-407f66498911?w=200&h=300&fit=crop' },
+  { id: 3, title: 'Echoes of Tomorrow', type: 'movie', genre: 'Drama', status: 'draft', updated: '1 day ago', vendor_id: 'vendor002', thumbnail: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=200&h=300&fit=crop' },
+  { id: 4, title: 'Neon Dreams', type: 'series', genre: 'Crime', status: 'processing', updated: '2 days ago', vendor_id: 'vendor002', episodes: 8, thumbnail: 'https://images.unsplash.com/photo-1594909122849-11daa2a0cf2b?w=200&h=300&fit=crop' },
+  { id: 5, title: 'The Last Horizon', type: 'movie', genre: 'Adventure', status: 'published', updated: '3 days ago', vendor_id: 'vendor003', thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200&h=300&fit=crop' },
+  { id: 6, title: 'Shadow Protocol', type: 'series', genre: 'Action', status: 'draft', updated: '4 days ago', vendor_id: 'vendor001', episodes: 10, thumbnail: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=200&h=300&fit=crop' },
+  { id: 7, title: 'Silent Waters', type: 'movie', genre: 'Mystery', status: 'published', updated: '5 days ago', vendor_id: 'vendor004', thumbnail: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=200&h=300&fit=crop' },
+  { id: 8, title: 'Urban Legends', type: 'series', genre: 'Horror', status: 'processing', updated: '1 week ago', vendor_id: 'vendor003', episodes: 6, thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200&h=300&fit=crop' },
+  { id: 9, title: 'Glass House', type: 'short', genre: 'Drama', status: 'published', updated: '1 week ago', vendor_id: 'vendor001', duration: '18 min', thumbnail: 'https://images.unsplash.com/photo-1497015289639-54688650d173?w=200&h=300&fit=crop' },
+  { id: 10, title: 'Kesariya Dhun', type: 'song', genre: 'Film Song', status: 'published', updated: '2 days ago', vendor_id: 'vendor001', artist: 'Aarav Mehta', duration: '4:23', thumbnail: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop' },
+  { id: 11, title: 'Kaveri Raagam', type: 'song', genre: 'Classical', status: 'draft', updated: '3 days ago', vendor_id: 'vendor002', artist: 'Nila Subramaniam', duration: '6:12', thumbnail: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=300&h=300&fit=crop' },
+  { id: 12, title: 'Mumbai Rain Alert', type: 'news-clip', genre: 'News', status: 'published', updated: '45 min ago', vendor_id: 'vendor001', duration: '3:12', isLive: true, thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=300&h=300&fit=crop' },
+  { id: 13, title: 'Delhi Policy Brief', type: 'news-clip', genre: 'News', status: 'published', updated: '2 hours ago', vendor_id: 'vendor002', duration: '6:40', isLive: false, thumbnail: 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=300&h=300&fit=crop' },
 ];
 
-const genres = ['All', 'Action', 'Adventure', 'Crime', 'Drama', 'Horror', 'Mystery', 'Sci-Fi', 'Thriller'];
-const types = ['All', 'Movie', 'Series'];
+const genres = ['All', 'Action', 'Adventure', 'Crime', 'Drama', 'Horror', 'Mystery', 'Sci-Fi', 'Thriller', 'Film Song', 'Classical', 'News'];
+const types = ['All', 'Movie', 'Series', 'Short', 'Song', 'News Clip'];
 const statuses = ['All', 'Published', 'Draft', 'Processing'];
+const contentTabs = [
+  { label: 'All', value: 'All' },
+  { label: 'Movies', value: 'movie' },
+  { label: 'TV Shows', value: 'series' },
+  { label: 'Short Films', value: 'short' },
+  { label: 'Songs', value: 'song' },
+  { label: 'News Clips', value: 'news-clip' },
+] as const;
 
-export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps) {
+export function ContentLibrarySection({ onNavigate, userRole, userId }: ContentLibrarySectionProps) {
   const [content] = useState<ContentItem[]>(mockContent);
   const [filteredContent, setFilteredContent] = useState<ContentItem[]>(mockContent);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('All');
   const [selectedType, setSelectedType] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedContentTab, setSelectedContentTab] = useState<(typeof contentTabs)[number]['value']>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [isVisible, setIsVisible] = useState(false);
+  const [expandedItemId, setExpandedItemId] = useState<number | null>(null);
   const itemsPerPage = 6;
 
   useEffect(() => {
@@ -62,11 +85,13 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
   }, []);
 
   useEffect(() => {
-    let filtered = content;
+    let filtered = userRole === 'vendor'
+      ? content.filter(item => item.vendor_id === userId)
+      : content;
 
     if (searchQuery) {
       filtered = filtered.filter(item =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase())
+        `${item.title} ${item.artist || ''}`.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -75,9 +100,14 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
     }
 
     if (selectedType !== 'All') {
-      filtered = filtered.filter(item => 
-        item.type === selectedType.toLowerCase()
-      );
+      const typeMap: Record<string, ContentItem['type']> = {
+        Movie: 'movie',
+        Series: 'series',
+        Short: 'short',
+        Song: 'song',
+        'News Clip': 'news-clip',
+      };
+      filtered = filtered.filter(item => item.type === typeMap[selectedType]);
     }
 
     if (selectedStatus !== 'All') {
@@ -86,9 +116,13 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
       );
     }
 
+    if (selectedContentTab !== 'All') {
+      filtered = filtered.filter(item => item.type === selectedContentTab);
+    }
+
     setFilteredContent(filtered);
     setCurrentPage(1);
-  }, [searchQuery, selectedGenre, selectedType, selectedStatus, content]);
+  }, [searchQuery, selectedGenre, selectedType, selectedStatus, selectedContentTab, content, userRole, userId]);
 
   const totalPages = Math.ceil(filteredContent.length / itemsPerPage);
   const paginatedContent = filteredContent.slice(
@@ -110,7 +144,21 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
   };
 
   const getTypeIcon = (type: string) => {
-    return type === 'movie' ? <Film className="type-icon" /> : <Tv className="type-icon" />;
+    if (type === 'song') return <Music className="type-icon" />;
+    if (type === 'news-clip') return <Radio className="type-icon" />;
+    if (type === 'series') return <Tv className="type-icon" />;
+    return <Film className="type-icon" />;
+  };
+
+  const getTypeLabel = (type: ContentItem['type']) => {
+    const labels: Record<ContentItem['type'], string> = {
+      movie: 'Movie',
+      series: 'TV Show',
+      short: 'Short Film',
+      song: 'Song',
+      'news-clip': 'News Clip',
+    };
+    return labels[type];
   };
 
   return (
@@ -126,14 +174,14 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
           }}
         >
           <div>
-            <h1>Content Library</h1>
+            <h1>{userRole === 'vendor' ? 'My Content' : 'Content Library'}</h1>
             <p>Search, filter, and update metadata in bulk.</p>
           </div>
           <button 
             className="btn btn-primary"
             onClick={() => onNavigate('add-title-type')}
           >
-            <Plus /> Add Title
+            <Plus /> Upload New
           </button>
         </div>
 
@@ -191,6 +239,25 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
           </div>
         </div>
 
+        <div
+          className="content-type-tabs"
+          style={{
+            opacity: isVisible ? 1 : 0,
+            transform: isVisible ? 'translateY(0)' : 'translateY(-20px)',
+            transition: 'opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s'
+          }}
+        >
+          {contentTabs.map(tab => (
+            <button
+              key={tab.value}
+              className={selectedContentTab === tab.value ? 'active' : ''}
+              onClick={() => setSelectedContentTab(tab.value)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Content Grid */}
         <div 
           className="content-grid"
@@ -203,7 +270,7 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
           {paginatedContent.map((item, index) => (
             <div 
               key={item.id} 
-              className="content-card"
+              className={`content-card ${item.type === 'song' ? 'song-card' : ''} ${item.type === 'news-clip' ? 'news-card' : ''}`}
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               <div className="content-thumbnail">
@@ -211,6 +278,16 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
                 <div className="content-type-badge">
                   {getTypeIcon(item.type)}
                 </div>
+                {item.type === 'song' && (
+                  <div className="song-overlay-icon">
+                    <Music />
+                  </div>
+                )}
+                {item.type === 'news-clip' && item.isLive && (
+                  <div className="live-badge">
+                    LIVE
+                  </div>
+                )}
                 {item.episodes && (
                   <div className="content-episodes">
                     {item.episodes} EP
@@ -221,19 +298,34 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
               <div className="content-info">
                 <h3 className="content-title">{item.title}</h3>
                 <div className="content-meta">
-                  <span className="content-genre">{item.genre}</span>
+                  <span className="content-genre">{item.type === 'song' ? item.artist : item.genre}</span>
                   <span className="content-divider">•</span>
-                  <span className="content-updated">{item.updated}</span>
+                  <span className="content-updated">{item.duration || item.updated}</span>
+                </div>
+                <div className="content-kind">
+                  {getTypeLabel(item.type)}
                 </div>
                 <div className="content-status">
                   {getStatusBadge(item.status)}
                 </div>
+                {expandedItemId === item.id && (
+                  <div className="expanded-detail">
+                    <span>Vendor: {item.vendor_id}</span>
+                    <span>Updated: {item.updated}</span>
+                    {item.type === 'series' && (
+                      <strong className="episode-pricing">Episode Pricing: ₹5/ep</strong>
+                    )}
+                    <button onClick={() => onNavigate('content-detail')}>
+                      Open full details <ChevronRight />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="content-actions">
                 <button 
                   className="action-btn"
-                  onClick={() => onNavigate('content-detail')}
+                  onClick={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
                   title="View"
                 >
                   <Eye />
@@ -241,9 +333,11 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
                 <button className="action-btn" title="Edit">
                   <Edit2 />
                 </button>
-                <button className="action-btn danger" title="Delete">
-                  <Trash2 />
-                </button>
+                {(userRole === 'admin' || item.vendor_id === userId) && (
+                  <button className="action-btn danger" title="Delete">
+                    <Trash2 />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -387,6 +481,40 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
           background: var(--bg-secondary);
         }
 
+        .content-type-tabs {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 28px;
+          padding: 10px;
+          border-radius: 18px;
+          border: 1px solid var(--border);
+          background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)), rgba(19, 23, 30, 0.82);
+          backdrop-filter: blur(24px);
+          overflow-x: auto;
+        }
+
+        .content-type-tabs button {
+          min-height: 38px;
+          padding: 8px 13px;
+          border: 1px solid transparent;
+          border-radius: 10px;
+          background: transparent;
+          color: var(--text-secondary);
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.2s ease;
+        }
+
+        .content-type-tabs button:hover,
+        .content-type-tabs button.active {
+          color: var(--text-primary);
+          background: rgba(128, 0, 32, 0.16);
+          border-color: rgba(128, 0, 32, 0.3);
+        }
+
         .content-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
@@ -413,6 +541,11 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
           position: relative;
           aspect-ratio: 2/3;
           overflow: hidden;
+        }
+
+        .song-card .content-thumbnail,
+        .news-card .content-thumbnail {
+          aspect-ratio: 1/1;
         }
 
         .content-thumbnail img {
@@ -461,6 +594,39 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
           backdrop-filter: blur(14px);
         }
 
+        .song-overlay-icon {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: rgba(255,255,255,0.82);
+          background: linear-gradient(180deg, transparent, rgba(22, 7, 9, 0.44));
+          pointer-events: none;
+        }
+
+        .song-overlay-icon svg {
+          width: 42px;
+          height: 42px;
+          filter: drop-shadow(0 8px 18px rgba(0,0,0,0.35));
+        }
+
+        .live-badge {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          padding: 5px 9px;
+          border-radius: 999px;
+          color: #ffffff;
+          background: rgba(239, 68, 68, 0.92);
+          border: 1px solid rgba(255,255,255,0.16);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+          animation: livePulse 1.4s ease infinite;
+        }
+
         .content-info {
           padding: 18px 18px 16px;
         }
@@ -484,6 +650,19 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
           color: var(--text-secondary);
         }
 
+        .content-kind {
+          display: inline-flex;
+          width: fit-content;
+          margin-bottom: 12px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(128, 0, 32, 0.24);
+          background: rgba(128, 0, 32, 0.12);
+          color: var(--text-primary);
+          font-size: 11px;
+          font-weight: 700;
+        }
+
         .content-divider {
           opacity: 0.5;
         }
@@ -497,6 +676,48 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
         .content-status .badge svg {
           width: 12px;
           height: 12px;
+        }
+
+        .expanded-detail {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 14px;
+          padding: 12px;
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          color: var(--text-secondary);
+          font-size: 12px;
+        }
+
+        .episode-pricing {
+          width: fit-content;
+          padding: 5px 9px;
+          border-radius: 999px;
+          color: #fbbf24;
+          background: rgba(245, 158, 11, 0.12);
+          border: 1px solid rgba(245, 158, 11, 0.24);
+        }
+
+        .expanded-detail button {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          width: fit-content;
+          padding: 7px 9px;
+          border: 1px solid rgba(128, 0, 32, 0.24);
+          border-radius: 8px;
+          background: rgba(128, 0, 32, 0.14);
+          color: var(--text-primary);
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .expanded-detail button svg {
+          width: 14px;
+          height: 14px;
         }
 
         .content-actions {
@@ -578,6 +799,15 @@ export function ContentLibrarySection({ onNavigate }: ContentLibrarySectionProps
         .pagination-btn svg {
           width: 18px;
           height: 18px;
+        }
+
+        @keyframes livePulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.42);
+          }
+          50% {
+            box-shadow: 0 0 0 9px rgba(239, 68, 68, 0);
+          }
         }
 
         @media (max-width: 1200px) {

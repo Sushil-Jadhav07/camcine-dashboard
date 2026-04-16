@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { 
+import {
   Settings,
   Palette,
   Shield,
@@ -11,30 +11,93 @@ import {
   LogOut,
   ChevronRight,
   Key,
-  Webhook
+  Webhook,
+  User,
+  Wallet,
+  Trash2,
+  Eye,
+  EyeOff,
+  Building2,
+  MapPin,
+  Languages,
 } from 'lucide-react';
+import type { UserRole } from '../App';
 
 interface SettingsSectionProps {
   onLogout: () => void;
+  userRole: UserRole;
+  userId: string;
 }
 
-type SettingsTab = 'general' | 'branding' | 'security' | 'notifications' | 'integrations' | 'billing';
+type SettingsTab =
+  | 'account'
+  | 'general'
+  | 'branding'
+  | 'security'
+  | 'notifications'
+  | 'integrations'
+  | 'billing'
+  | 'payout';
 
-const tabs = [
-  { id: 'general' as SettingsTab, label: 'General', icon: Settings },
-  { id: 'branding' as SettingsTab, label: 'Branding', icon: Palette },
-  { id: 'security' as SettingsTab, label: 'Security', icon: Shield },
-  { id: 'notifications' as SettingsTab, label: 'Notifications', icon: Bell },
-  { id: 'integrations' as SettingsTab, label: 'Integrations', icon: Plug },
-  { id: 'billing' as SettingsTab, label: 'Billing', icon: CreditCard },
+interface TabDef {
+  id: SettingsTab;
+  label: string;
+  icon: React.ElementType;
+}
+
+const allTabs: TabDef[] = [
+  { id: 'account', label: 'Account', icon: User },
+  { id: 'general', label: 'General', icon: Settings },
+  { id: 'branding', label: 'Branding', icon: Palette },
+  { id: 'security', label: 'Security', icon: Shield },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'integrations', label: 'Integrations', icon: Plug },
+  { id: 'billing', label: 'Billing', icon: CreditCard },
+  { id: 'payout', label: 'Payout Settings', icon: Wallet },
 ];
 
-export function SettingsSection({ onLogout }: SettingsSectionProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+const pageTitleByRole: Record<UserRole, string> = {
+  admin: 'Platform Settings',
+  vendor: 'My Account',
+  user: 'My Account',
+  actor: 'My Account',
+};
+
+function getTabsForRole(role: UserRole): TabDef[] {
+  switch (role) {
+    case 'admin':
+      return allTabs.filter((t) =>
+        ['general', 'branding', 'security', 'notifications', 'integrations', 'billing'].includes(t.id)
+      );
+    case 'vendor':
+      return allTabs.filter((t) =>
+        ['account', 'security', 'notifications', 'payout'].includes(t.id)
+      );
+    case 'user':
+      return allTabs.filter((t) =>
+        ['account', 'security', 'notifications'].includes(t.id)
+      );
+    case 'actor':
+      return allTabs.filter((t) =>
+        ['account', 'security', 'notifications'].includes(t.id)
+      );
+    default:
+      return allTabs.filter((t) =>
+        ['general', 'branding', 'security', 'notifications', 'integrations', 'billing'].includes(t.id)
+      );
+  }
+}
+
+export function SettingsSection({ onLogout, userRole, userId }: SettingsSectionProps) {
+  const roleTabs = getTabsForRole(userRole);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(roleTabs[0]?.id ?? 'general');
   const [isVisible, setIsVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
   const [settings, setSettings] = useState({
-    siteName: 'StreamFlow',
-    timezone: 'UTC-5',
+    siteName: 'Camcine',
+    timezone: 'UTC+5:30',
     language: 'en',
     darkMode: true,
     accentColor: '#800020',
@@ -45,7 +108,26 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
     pushNotifications: false,
     marketingEmails: false,
     apiKey: 'sk_live_51HxZ9l2eZvKYlo2C...',
-    webhookUrl: 'https://api.streamflow.com/webhooks',
+    webhookUrl: 'https://api.camcine.com/webhooks',
+  });
+
+  // Account tab state
+  const [account, setAccount] = useState({
+    displayName: userId || 'User',
+    languagePref: 'Hindi',
+    regionPref: 'Maharashtra',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  // Payout tab state
+  const [payout] = useState({
+    accountNumber: '•••• •••• 1234',
+    ifsc: 'HDFC0001234',
+    bankName: 'HDFC Bank',
+    accountHolder: 'Ravi Mehta',
+    upiId: 'ravi.mehta@upi',
   });
 
   useEffect(() => {
@@ -53,13 +135,245 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
     return () => clearTimeout(timer);
   }, []);
 
+  // When role tabs change (shouldn't happen at runtime but safety), reset tab
+  useEffect(() => {
+    if (!roleTabs.find((t) => t.id === activeTab)) {
+      setActiveTab(roleTabs[0]?.id ?? 'general');
+    }
+  }, [userRole]);
+
   const handleSave = () => {
-    // Save settings logic
     alert('Settings saved successfully!');
   };
 
+  const renderAccountTab = () => (
+    <div className="settings-form">
+      {/* Profile photo */}
+      <div className="form-section">
+        <h3>Profile</h3>
+        <div className="profile-photo-row">
+          <div className="profile-avatar">
+            <User className="avatar-icon" />
+          </div>
+          <div className="profile-photo-actions">
+            <button className="btn btn-secondary">
+              <Upload /> Upload Photo
+            </button>
+            <span className="upload-hint">JPG or PNG, max 2MB</span>
+          </div>
+        </div>
+        <div className="form-grid">
+          <div className="form-field">
+            <label className="label">Display Name</label>
+            <input
+              type="text"
+              className="input"
+              value={account.displayName}
+              onChange={(e) => setAccount({ ...account, displayName: e.target.value })}
+            />
+          </div>
+          <div className="form-field">
+            <label className="label">Email</label>
+            <input
+              type="text"
+              className="input input-readonly"
+              value="j***@gmail.com"
+              readOnly
+            />
+          </div>
+          <div className="form-field">
+            <label className="label">Phone</label>
+            <input
+              type="text"
+              className="input input-readonly"
+              value="+91 98***1234"
+              readOnly
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Preferences */}
+      <div className="form-section">
+        <h3>Preferences</h3>
+        <div className="form-grid">
+          <div className="form-field">
+            <label className="label">
+              <Languages className="label-icon" /> Language
+            </label>
+            <select
+              className="filter-select"
+              value={account.languagePref}
+              onChange={(e) => setAccount({ ...account, languagePref: e.target.value })}
+            >
+              <option>English</option>
+              <option>Hindi</option>
+              <option>Tamil</option>
+              <option>Telugu</option>
+              <option>Bengali</option>
+            </select>
+          </div>
+          <div className="form-field">
+            <label className="label">
+              <MapPin className="label-icon" /> Region
+            </label>
+            <select
+              className="filter-select"
+              value={account.regionPref}
+              onChange={(e) => setAccount({ ...account, regionPref: e.target.value })}
+            >
+              {[
+                'Andhra Pradesh','Assam','Bihar','Delhi','Goa','Gujarat','Haryana',
+                'Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh',
+                'Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha',
+                'Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura',
+                'Uttar Pradesh','Uttarakhand','West Bengal',
+              ].map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Change password */}
+      <div className="form-section">
+        <h3>Change Password</h3>
+        <div className="form-grid">
+          <div className="form-field">
+            <label className="label">Current Password</label>
+            <div className="password-field">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input"
+                value={account.currentPassword}
+                onChange={(e) => setAccount({ ...account, currentPassword: e.target.value })}
+                placeholder="Enter current password"
+              />
+              <button className="pw-toggle" onClick={() => setShowPassword(!showPassword)}>
+                {showPassword ? <EyeOff /> : <Eye />}
+              </button>
+            </div>
+          </div>
+          <div className="form-field">
+            <label className="label">New Password</label>
+            <input
+              type="password"
+              className="input"
+              value={account.newPassword}
+              onChange={(e) => setAccount({ ...account, newPassword: e.target.value })}
+              placeholder="Min 8 characters"
+            />
+          </div>
+          <div className="form-field">
+            <label className="label">Confirm New Password</label>
+            <input
+              type="password"
+              className="input"
+              value={account.confirmPassword}
+              onChange={(e) => setAccount({ ...account, confirmPassword: e.target.value })}
+              placeholder="Re-enter new password"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Danger zone */}
+      <div className="form-section danger-zone">
+        <h3>Danger Zone</h3>
+        <div className="danger-item">
+          <div>
+            <span className="danger-label">Delete Account</span>
+            <span className="danger-desc">
+              Permanently delete your account and all associated data. This cannot be undone.
+            </span>
+          </div>
+          {!deleteConfirm ? (
+            <button className="btn btn-danger" onClick={() => setDeleteConfirm(true)}>
+              <Trash2 /> Delete
+            </button>
+          ) : (
+            <div className="delete-confirm-row">
+              <span className="danger-desc">Are you sure?</span>
+              <button className="btn btn-danger" onClick={() => alert('Account deletion requested.')}>
+                Confirm Delete
+              </button>
+              <button className="btn btn-secondary" onClick={() => setDeleteConfirm(false)}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPayoutTab = () => (
+    <div className="settings-form">
+      {/* Bank details */}
+      <div className="form-section">
+        <h3>
+          <Building2 className="section-icon" /> Bank Account
+        </h3>
+        <div className="form-grid">
+          <div className="form-field">
+            <label className="label">Account Number</label>
+            <input type="text" className="input input-readonly" value={payout.accountNumber} readOnly />
+          </div>
+          <div className="form-field">
+            <label className="label">IFSC Code</label>
+            <input type="text" className="input input-readonly" value={payout.ifsc} readOnly />
+          </div>
+          <div className="form-field">
+            <label className="label">Bank Name</label>
+            <input type="text" className="input input-readonly" value={payout.bankName} readOnly />
+          </div>
+          <div className="form-field">
+            <label className="label">Account Holder Name</label>
+            <input type="text" className="input input-readonly" value={payout.accountHolder} readOnly />
+          </div>
+        </div>
+        <button className="btn btn-secondary" style={{ marginTop: 4 }}>
+          Update Bank Details
+        </button>
+      </div>
+
+      {/* UPI */}
+      <div className="form-section">
+        <h3>UPI (Alternative Payout)</h3>
+        <div className="form-field" style={{ maxWidth: 360 }}>
+          <label className="label">UPI ID</label>
+          <input type="text" className="input input-readonly" value={payout.upiId} readOnly />
+        </div>
+      </div>
+
+      {/* Info cards */}
+      <div className="form-section">
+        <h3>Payout Information</h3>
+        <div className="payout-info-grid">
+          <div className="payout-info-card">
+            <span className="payout-info-label">TDS Deduction</span>
+            <span className="payout-info-value">10% deducted at source as per Indian tax law</span>
+          </div>
+          <div className="payout-info-card">
+            <span className="payout-info-label">Payout Schedule</span>
+            <span className="payout-info-value">Monthly — 1st of every month</span>
+          </div>
+          <div className="payout-info-card">
+            <span className="payout-info-label">Minimum Payout Threshold</span>
+            <span className="payout-info-value">₹500</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'account':
+        return renderAccountTab();
+
+      case 'payout':
+        return renderPayoutTab();
+
       case 'general':
         return (
           <div className="settings-form">
@@ -72,40 +386,38 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                     type="text"
                     className="input"
                     value={settings.siteName}
-                    onChange={(e) => setSettings({...settings, siteName: e.target.value})}
+                    onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
                   />
                 </div>
                 <div className="form-field">
                   <label className="label">Timezone</label>
-                  <select 
+                  <select
                     className="filter-select"
                     value={settings.timezone}
-                    onChange={(e) => setSettings({...settings, timezone: e.target.value})}
+                    onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
                   >
+                    <option value="UTC+5:30">India (UTC+5:30)</option>
                     <option value="UTC-8">Pacific Time (UTC-8)</option>
                     <option value="UTC-5">Eastern Time (UTC-5)</option>
                     <option value="UTC+0">UTC</option>
                     <option value="UTC+1">Central European (UTC+1)</option>
-                    <option value="UTC+8">Singapore (UTC+8)</option>
                   </select>
                 </div>
                 <div className="form-field">
                   <label className="label">Language</label>
-                  <select 
+                  <select
                     className="filter-select"
                     value={settings.language}
-                    onChange={(e) => setSettings({...settings, language: e.target.value})}
+                    onChange={(e) => setSettings({ ...settings, language: e.target.value })}
                   >
                     <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="ja">Japanese</option>
+                    <option value="hi">Hindi</option>
+                    <option value="ta">Tamil</option>
+                    <option value="te">Telugu</option>
                   </select>
                 </div>
               </div>
             </div>
-
             <div className="form-section">
               <h3>Appearance</h3>
               <div className="toggle-row">
@@ -113,9 +425,9 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                   <span className="toggle-label">Dark Mode</span>
                   <span className="toggle-desc">Use dark theme across the platform</span>
                 </div>
-                <button 
+                <button
                   className={`toggle ${settings.darkMode ? 'active' : ''}`}
-                  onClick={() => setSettings({...settings, darkMode: !settings.darkMode})}
+                  onClick={() => setSettings({ ...settings, darkMode: !settings.darkMode })}
                 >
                   <div className="toggle-slider" />
                 </button>
@@ -144,11 +456,10 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                   <button className="btn btn-secondary">
                     <Upload /> Upload New
                   </button>
-                  <span className="upload-hint">Recommended: 512x512px PNG</span>
+                  <span className="upload-hint">Recommended: 512×512px PNG</span>
                 </div>
               </div>
             </div>
-
             <div className="form-section">
               <h3>Brand Colors</h3>
               <div className="color-picker-row">
@@ -158,19 +469,18 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                     <input
                       type="color"
                       value={settings.accentColor}
-                      onChange={(e) => setSettings({...settings, accentColor: e.target.value})}
+                      onChange={(e) => setSettings({ ...settings, accentColor: e.target.value })}
                     />
                     <span>{settings.accentColor}</span>
                   </div>
                 </div>
               </div>
             </div>
-
             <div className="form-section">
               <h3>Favicon</h3>
               <div className="favicon-upload">
                 <div className="favicon-preview">
-                  <div className="favicon-placeholder">SF</div>
+                  <div className="favicon-placeholder">C</div>
                 </div>
                 <button className="btn btn-secondary">
                   <Upload /> Upload Favicon
@@ -188,35 +498,39 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
               <div className="toggle-row">
                 <div className="toggle-info">
                   <span className="toggle-label">Two-Factor Authentication</span>
-                  <span className="toggle-desc">Require 2FA for all admin accounts</span>
+                  <span className="toggle-desc">
+                    {userRole === 'admin'
+                      ? 'Require 2FA for all admin accounts'
+                      : 'Add an extra layer of security to your account'}
+                  </span>
                 </div>
-                <button 
+                <button
                   className={`toggle ${settings.twoFactor ? 'active' : ''}`}
-                  onClick={() => setSettings({...settings, twoFactor: !settings.twoFactor})}
+                  onClick={() => setSettings({ ...settings, twoFactor: !settings.twoFactor })}
                 >
                   <div className="toggle-slider" />
                 </button>
               </div>
             </div>
-
             <div className="form-section">
               <h3>Session Settings</h3>
-              <div className="form-field">
+              <div className="form-field" style={{ maxWidth: 240 }}>
                 <label className="label">Session Timeout (minutes)</label>
                 <input
                   type="number"
                   className="input"
                   value={settings.sessionTimeout}
-                  onChange={(e) => setSettings({...settings, sessionTimeout: parseInt(e.target.value)})}
+                  onChange={(e) =>
+                    setSettings({ ...settings, sessionTimeout: parseInt(e.target.value) })
+                  }
                   min={5}
                   max={120}
                 />
               </div>
             </div>
-
-            <div className="form-section danger-zone">
-              <h3>Danger Zone</h3>
-              <div className="danger-actions">
+            {userRole === 'admin' && (
+              <div className="form-section danger-zone">
+                <h3>Danger Zone</h3>
                 <div className="danger-item">
                   <div>
                     <span className="danger-label">Reset API Keys</span>
@@ -225,7 +539,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                   <button className="btn btn-danger">Reset</button>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         );
 
@@ -239,9 +553,11 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                   <span className="toggle-label">System Notifications</span>
                   <span className="toggle-desc">Receive emails about system updates</span>
                 </div>
-                <button 
+                <button
                   className={`toggle ${settings.emailNotifications ? 'active' : ''}`}
-                  onClick={() => setSettings({...settings, emailNotifications: !settings.emailNotifications})}
+                  onClick={() =>
+                    setSettings({ ...settings, emailNotifications: !settings.emailNotifications })
+                  }
                 >
                   <div className="toggle-slider" />
                 </button>
@@ -251,15 +567,16 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                   <span className="toggle-label">Marketing Emails</span>
                   <span className="toggle-desc">Receive product updates and offers</span>
                 </div>
-                <button 
+                <button
                   className={`toggle ${settings.marketingEmails ? 'active' : ''}`}
-                  onClick={() => setSettings({...settings, marketingEmails: !settings.marketingEmails})}
+                  onClick={() =>
+                    setSettings({ ...settings, marketingEmails: !settings.marketingEmails })
+                  }
                 >
                   <div className="toggle-slider" />
                 </button>
               </div>
             </div>
-
             <div className="form-section">
               <h3>Push Notifications</h3>
               <div className="toggle-row">
@@ -267,9 +584,11 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                   <span className="toggle-label">Browser Notifications</span>
                   <span className="toggle-desc">Show notifications in browser</span>
                 </div>
-                <button 
+                <button
                   className={`toggle ${settings.pushNotifications ? 'active' : ''}`}
-                  onClick={() => setSettings({...settings, pushNotifications: !settings.pushNotifications})}
+                  onClick={() =>
+                    setSettings({ ...settings, pushNotifications: !settings.pushNotifications })
+                  }
                 >
                   <div className="toggle-slider" />
                 </button>
@@ -286,12 +605,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
               <div className="form-field">
                 <label className="label">API Key</label>
                 <div className="api-key-field">
-                  <input
-                    type="text"
-                    className="input"
-                    value={settings.apiKey}
-                    readOnly
-                  />
+                  <input type="text" className="input" value={settings.apiKey} readOnly />
                   <button className="btn btn-secondary">
                     <Key /> Regenerate
                   </button>
@@ -305,45 +619,34 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                     type="text"
                     className="input"
                     value={settings.webhookUrl}
-                    onChange={(e) => setSettings({...settings, webhookUrl: e.target.value})}
+                    onChange={(e) => setSettings({ ...settings, webhookUrl: e.target.value })}
                   />
                 </div>
               </div>
             </div>
-
             <div className="form-section">
               <h3>Connected Services</h3>
               <div className="integrations-list">
-                <div className="integration-item">
-                  <div className="integration-info">
-                    <div className="integration-icon stripe">S</div>
-                    <div>
-                      <span className="integration-name">Stripe</span>
-                      <span className="integration-status connected">Connected</span>
+                {[
+                  { abbr: 'R', name: 'Razorpay', status: true, cls: 'razorpay' },
+                  { abbr: 'A', name: 'AWS S3', status: true, cls: 'aws' },
+                  { abbr: 'SG', name: 'SendGrid', status: false, cls: 'sendgrid' },
+                ].map((s) => (
+                  <div key={s.name} className="integration-item">
+                    <div className="integration-info">
+                      <div className={`integration-icon ${s.cls}`}>{s.abbr}</div>
+                      <div>
+                        <span className="integration-name">{s.name}</span>
+                        <span className={`integration-status ${s.status ? 'connected' : 'disconnected'}`}>
+                          {s.status ? 'Connected' : 'Not Connected'}
+                        </span>
+                      </div>
                     </div>
+                    <button className={`btn ${s.status ? 'btn-ghost' : 'btn-primary'}`}>
+                      {s.status ? 'Configure' : 'Connect'}
+                    </button>
                   </div>
-                  <button className="btn btn-ghost">Configure</button>
-                </div>
-                <div className="integration-item">
-                  <div className="integration-info">
-                    <div className="integration-icon aws">A</div>
-                    <div>
-                      <span className="integration-name">AWS S3</span>
-                      <span className="integration-status connected">Connected</span>
-                    </div>
-                  </div>
-                  <button className="btn btn-ghost">Configure</button>
-                </div>
-                <div className="integration-item">
-                  <div className="integration-info">
-                    <div className="integration-icon sendgrid">SG</div>
-                    <div>
-                      <span className="integration-name">SendGrid</span>
-                      <span className="integration-status disconnected">Not Connected</span>
-                    </div>
-                  </div>
-                  <button className="btn btn-primary">Connect</button>
-                </div>
+                ))}
               </div>
             </div>
           </div>
@@ -357,11 +660,11 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
               <div className="form-grid">
                 <div className="form-field">
                   <label className="label">Company Name</label>
-                  <input type="text" className="input" placeholder="StreamFlow Inc." />
+                  <input type="text" className="input" placeholder="Camcine Media Pvt. Ltd." />
                 </div>
                 <div className="form-field">
-                  <label className="label">Tax ID</label>
-                  <input type="text" className="input" placeholder="XX-XXXXXXX" />
+                  <label className="label">GSTIN</label>
+                  <input type="text" className="input" placeholder="27AAAAA0000A1Z5" />
                 </div>
                 <div className="form-field full-width">
                   <label className="label">Billing Address</label>
@@ -369,7 +672,6 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
                 </div>
               </div>
             </div>
-
             <div className="form-section">
               <h3>Payment Method</h3>
               <div className="payment-method">
@@ -395,31 +697,35 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
     <section className="settings-section">
       <div className="settings-container">
         {/* Header */}
-        <div 
+        <div
           className="settings-header"
           style={{
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(-20px)',
-            transition: 'opacity 0.5s ease, transform 0.5s ease'
+            transition: 'opacity 0.5s ease, transform 0.5s ease',
           }}
         >
-          <h1>Settings</h1>
-          <p>Configure your platform preferences.</p>
+          <h1>{pageTitleByRole[userRole]}</h1>
+          <p>
+            {userRole === 'admin'
+              ? 'Configure platform-wide preferences and integrations.'
+              : 'Manage your profile, security and notification preferences.'}
+          </p>
         </div>
 
         {/* Settings Layout */}
         <div className="settings-layout">
           {/* Sidebar */}
-          <div 
+          <div
             className="settings-sidebar"
             style={{
               opacity: isVisible ? 1 : 0,
               transform: isVisible ? 'translateX(0)' : 'translateX(-40px)',
-              transition: 'opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s'
+              transition: 'opacity 0.5s ease 0.1s, transform 0.5s ease 0.1s',
             }}
           >
             <div className="settings-tabs">
-              {tabs.map((tab) => {
+              {roleTabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
@@ -443,17 +749,17 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           </div>
 
           {/* Content */}
-          <div 
+          <div
             className="settings-content"
             style={{
               opacity: isVisible ? 1 : 0,
               transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
-              transition: 'opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s'
+              transition: 'opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s',
             }}
           >
             <div className="content-card">
               {renderTabContent()}
-              
+
               <div className="settings-actions">
                 <button className="btn btn-secondary">Cancel</button>
                 <button className="btn btn-primary" onClick={handleSave}>
@@ -552,6 +858,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
         .tab-icon {
           width: 18px;
           height: 18px;
+          flex-shrink: 0;
         }
 
         .tab-arrow {
@@ -622,6 +929,15 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           color: var(--text-primary);
           padding-bottom: 12px;
           border-bottom: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .section-icon {
+          width: 18px;
+          height: 18px;
+          color: var(--accent);
         }
 
         .form-grid {
@@ -640,6 +956,140 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           grid-column: span 2;
         }
 
+        .label {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .label-icon {
+          width: 14px;
+          height: 14px;
+        }
+
+        .input {
+          padding: 10px 14px;
+          background: var(--bg-primary);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          color: var(--text-primary);
+          font-size: 14px;
+          outline: none;
+          width: 100%;
+          box-sizing: border-box;
+          transition: border-color 0.2s ease;
+        }
+
+        .input:focus {
+          border-color: var(--accent);
+        }
+
+        .input-readonly {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+        .input::placeholder {
+          color: var(--text-secondary);
+          opacity: 0.7;
+        }
+
+        textarea.input {
+          resize: vertical;
+          font-family: inherit;
+        }
+
+        /* Profile photo */
+        .profile-photo-row {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        }
+
+        .profile-avatar {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          background: rgba(128, 0, 32, 0.14);
+          border: 2px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .avatar-icon {
+          width: 32px;
+          height: 32px;
+          color: var(--accent);
+        }
+
+        .profile-photo-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        /* Password field */
+        .password-field {
+          position: relative;
+        }
+
+        .pw-toggle {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: transparent;
+          border: none;
+          color: var(--text-secondary);
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .pw-toggle svg {
+          width: 18px;
+          height: 18px;
+        }
+
+        /* Payout info cards */
+        .payout-info-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+        }
+
+        .payout-info-card {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 18px;
+          border-radius: 16px;
+          border: 1px solid var(--border);
+          background: rgba(128, 0, 32, 0.06);
+        }
+
+        .payout-info-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .payout-info-value {
+          font-size: 14px;
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+
+        /* Toggle */
         .toggle-row {
           display: flex;
           align-items: center;
@@ -672,12 +1122,13 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
         .toggle {
           width: 48px;
           height: 26px;
-          background: var(--bg-tertiary);
+          background: var(--bg-tertiary, #2a1a1e);
           border-radius: 13px;
           position: relative;
           cursor: pointer;
           border: none;
           transition: background 0.3s ease;
+          flex-shrink: 0;
         }
 
         .toggle.active {
@@ -699,6 +1150,44 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           transform: translateX(22px);
         }
 
+        /* Danger zone */
+        .danger-zone h3 {
+          color: var(--error);
+          border-color: rgba(239, 68, 68, 0.25);
+        }
+
+        .danger-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 16px;
+          background: rgba(239, 68, 68, 0.05);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 10px;
+        }
+
+        .danger-label {
+          display: block;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-primary);
+          margin-bottom: 4px;
+        }
+
+        .danger-desc {
+          font-size: 13px;
+          color: var(--text-secondary);
+        }
+
+        .delete-confirm-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+
+        /* Branding */
         .logo-upload {
           display: flex;
           align-items: center;
@@ -747,6 +1236,8 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           color: var(--text-secondary);
         }
 
+        .color-picker-row {}
+
         .color-input {
           display: flex;
           align-items: center;
@@ -785,55 +1276,7 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           color: var(--accent);
         }
 
-        .danger-zone h3 {
-          color: var(--error);
-        }
-
-        .danger-actions {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .danger-item {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 16px;
-          background: rgba(239, 68, 68, 0.05);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          border-radius: 10px;
-        }
-
-        .danger-label {
-          display: block;
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--text-primary);
-          margin-bottom: 4px;
-        }
-
-        .danger-desc {
-          font-size: 13px;
-          color: var(--text-secondary);
-        }
-
-        .btn-danger {
-          padding: 8px 16px;
-          background: var(--error);
-          border: none;
-          border-radius: 8px;
-          color: white;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-danger:hover {
-          background: #b91c1c;
-        }
-
+        /* Integrations */
         .api-key-field {
           display: flex;
           gap: 12px;
@@ -896,17 +1339,9 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           color: white;
         }
 
-        .integration-icon.stripe {
-          background: #800020;
-        }
-
-        .integration-icon.aws {
-          background: #9f1d35;
-        }
-
-        .integration-icon.sendgrid {
-          background: #68101e;
-        }
+        .integration-icon.razorpay { background: #800020; }
+        .integration-icon.aws { background: #9f1d35; }
+        .integration-icon.sendgrid { background: #68101e; }
 
         .integration-name {
           display: block;
@@ -920,14 +1355,10 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           font-size: 12px;
         }
 
-        .integration-status.connected {
-          color: var(--success);
-        }
+        .integration-status.connected { color: var(--success); }
+        .integration-status.disconnected { color: var(--text-secondary); }
 
-        .integration-status.disconnected {
-          color: var(--text-secondary);
-        }
-
+        /* Billing */
         .payment-method {
           display: flex;
           align-items: center;
@@ -974,19 +1405,66 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           color: var(--text-secondary);
         }
 
-        .settings-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 12px;
-          margin-top: 32px;
-          padding-top: 24px;
-          border-top: 1px solid var(--border);
-        }
-
-        .settings-actions .btn {
+        /* Buttons */
+        .btn {
+          display: inline-flex;
+          align-items: center;
           gap: 8px;
+          padding: 10px 18px;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
         }
 
+        .btn svg {
+          width: 16px;
+          height: 16px;
+        }
+
+        .btn-primary {
+          background: var(--accent);
+          color: white;
+        }
+
+        .btn-primary:hover {
+          background: #9a0025;
+        }
+
+        .btn-secondary {
+          background: rgba(255,255,255,0.06);
+          border: 1px solid var(--border);
+          color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+          background: rgba(255,255,255,0.1);
+        }
+
+        .btn-ghost {
+          background: transparent;
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover {
+          color: var(--text-primary);
+          border-color: rgba(255,255,255,0.2);
+        }
+
+        .btn-danger {
+          background: var(--error, #ef4444);
+          color: white;
+          border: none;
+        }
+
+        .btn-danger:hover {
+          background: #b91c1c;
+        }
+
+        /* Filter select */
         .filter-select {
           padding: 10px 16px;
           background: var(--bg-primary);
@@ -997,6 +1475,16 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
           cursor: pointer;
           outline: none;
           width: 100%;
+        }
+
+        /* Actions bar */
+        .settings-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          margin-top: 32px;
+          padding-top: 24px;
+          border-top: 1px solid var(--border);
         }
 
         @media (max-width: 1024px) {
@@ -1014,6 +1502,10 @@ export function SettingsSection({ onLogout }: SettingsSectionProps) {
 
           .sidebar-footer {
             display: none;
+          }
+
+          .payout-info-grid {
+            grid-template-columns: 1fr;
           }
         }
 

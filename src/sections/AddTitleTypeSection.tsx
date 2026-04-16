@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Film, Tv } from 'lucide-react';
+import { ArrowLeft, Film, Music, Radio, Tv } from 'lucide-react';
 import type { Section } from '../App';
+
+type TitleType = 'movie' | 'series' | 'song' | 'news-clip';
 
 interface AddTitleTypeSectionProps {
   onNavigate: (section: Section) => void;
-  onSelectType: (type: 'movie' | 'series') => void;
+  onSelectType: (type: TitleType) => void;
 }
 
 export function AddTitleTypeSection({ onNavigate, onSelectType }: AddTitleTypeSectionProps) {
@@ -15,8 +17,19 @@ export function AddTitleTypeSection({ onNavigate, onSelectType }: AddTitleTypeSe
     return () => clearTimeout(timer);
   }, []);
 
-  const handleSelect = (type: 'movie' | 'series') => {
+  const handleSelect = (type: TitleType) => {
     onSelectType(type);
+
+    if (type === 'song') {
+      onNavigate('songs');
+      return;
+    }
+
+    if (type === 'news-clip') {
+      onNavigate('news');
+      return;
+    }
+
     onNavigate('add-title');
   };
 
@@ -78,6 +91,26 @@ export function AddTitleTypeSection({ onNavigate, onSelectType }: AddTitleTypeSe
                 <p>Multiple episode uploads with names and descriptions.</p>
               </div>
             </button>
+
+            <button className="type-option" onClick={() => handleSelect('song')}>
+              <div className="type-icon">
+                <Music />
+              </div>
+              <div className="type-copy">
+                <h3>Song</h3>
+                <p>Audio track or music video with lyrics sync and cultural metadata.</p>
+              </div>
+            </button>
+
+            <button className="type-option" onClick={() => handleSelect('news-clip')}>
+              <div className="type-icon">
+                <Radio />
+              </div>
+              <div className="type-copy">
+                <h3>News Clip</h3>
+                <p>Short VOD clip from live news (2-10 min recording).</p>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -116,7 +149,7 @@ export function AddTitleTypeSection({ onNavigate, onSelectType }: AddTitleTypeSe
           position: relative;
           z-index: 10;
           width: 100%;
-          max-width: 720px;
+          max-width: 900px;
           margin: 0 auto;
           padding: 0 24px;
         }
@@ -174,6 +207,7 @@ export function AddTitleTypeSection({ onNavigate, onSelectType }: AddTitleTypeSe
 
         .type-options {
           display: grid;
+          grid-template-columns: repeat(2, 1fr);
           gap: 16px;
         }
 
@@ -222,6 +256,12 @@ export function AddTitleTypeSection({ onNavigate, onSelectType }: AddTitleTypeSe
         .type-copy p {
           font-size: 13px;
           color: var(--text-secondary);
+        }
+
+        @media (max-width: 760px) {
+          .type-options {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </section>

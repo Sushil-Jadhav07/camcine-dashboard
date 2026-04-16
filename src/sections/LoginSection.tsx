@@ -10,12 +10,14 @@ const credentials: Record<UserRole, { id: string; password: string }> = {
   admin: { id: 'admin001', password: 'admin123' },
   vendor: { id: 'vendor001', password: 'vendor123' },
   user: { id: 'user001', password: 'user123' },
+  actor: { id: 'actor001', password: 'actor123' },
 };
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Admin',
   vendor: 'Vendor',
   user: 'User',
+  actor: 'Actor',
 };
 
 export function LoginSection({ onLogin }: LoginSectionProps) {
@@ -90,7 +92,7 @@ export function LoginSection({ onLogin }: LoginSectionProps) {
           <div className="login-logo-icon">
             <Film />
           </div>
-          <h1 className="login-title">StreamFlow</h1>
+          <h1 className="login-title">Camcine</h1>
         </div>
 
         <div className="login-header">

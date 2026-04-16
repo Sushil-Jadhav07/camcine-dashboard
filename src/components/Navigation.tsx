@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import type { ElementType } from 'react';
 import {
+  BarChart3,
   LayoutDashboard,
   Film,
+  ListMusic,
+  Newspaper,
   Users,
   CreditCard,
   Receipt,
@@ -10,7 +14,10 @@ import {
   Bell,
   Menu,
   X,
-  LogOut
+  LogOut,
+  UserCircle,
+  Wallet,
+  Clock
 } from 'lucide-react';
 import type { Section, UserRole } from '../App';
 
@@ -22,23 +29,64 @@ interface NavigationProps {
   userId: string;
 }
 
-const navItems: { id: Section; label: string; icon: React.ElementType }[] = [
+type NavItem = {
+  id: Section;
+  label: string;
+  icon: ElementType;
+};
+
+const adminNavItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'content', label: 'Content', icon: Film },
+  { id: 'actor-queue', label: 'Actor Queue', icon: Clock },
+  { id: 'songs', label: 'Songs', icon: ListMusic },
+  { id: 'news', label: 'News', icon: Newspaper },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
   { id: 'payments', label: 'Payments', icon: Receipt },
+  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+];
+
+const vendorNavItems: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'content', label: 'My Content', icon: Film },
+  { id: 'songs', label: 'My Songs', icon: ListMusic },
+  { id: 'vendor-earnings', label: 'My Earnings', icon: Wallet },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
+
+const userNavItems: NavItem[] = [
+  { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
+  { id: 'payments', label: 'My Purchases', icon: Receipt },
+  { id: 'settings', label: 'Settings', icon: Settings },
+];
+
+const actorNavItems: NavItem[] = [
+  { id: 'actor-portal', label: 'My Profile', icon: UserCircle },
+  { id: 'settings', label: 'Settings', icon: Settings },
+];
+
+const navItemsByRole: Record<UserRole, NavItem[]> = {
+  admin: adminNavItems,
+  vendor: vendorNavItems,
+  user: userNavItems,
+  actor: actorNavItems,
+};
+
+const getNavItems = (role: UserRole): NavItem[] => navItemsByRole[role];
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Admin',
   vendor: 'Vendor',
   user: 'User',
+  actor: 'Actor',
 };
 
 export function Navigation({ currentSection, onNavigate, onLogout, userRole, userId }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navItems = userRole ? getNavItems(userRole) : [];
 
   const handleNavClick = (section: Section) => {
     onNavigate(section);
@@ -48,9 +96,16 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
   return (
     <nav className="sidebar-root">
       <div className="sidebar-mobile-bar">
-        <div className="sidebar-logo">
-          <Film className="sidebar-logo-icon" />
-          <span className="sidebar-logo-text">StreamFlow</span>
+        <div className="sidebar-brand">
+          <div className="sidebar-logo">
+            <Film className="sidebar-logo-icon" />
+            <span className="sidebar-logo-text">Camcine</span>
+          </div>
+          {userRole && (
+            <span className={`sidebar-role-badge ${userRole}`}>
+              {roleLabels[userRole].toUpperCase()}
+            </span>
+          )}
         </div>
         <button
           className="sidebar-mobile-toggle"
@@ -72,9 +127,16 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
       <div className={`sidebar-panel ${isMobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-panel-inner">
           <div className="sidebar-header">
-            <div className="sidebar-logo">
-              <Film className="sidebar-logo-icon" />
-              <span className="sidebar-logo-text">StreamFlow</span>
+            <div className="sidebar-brand">
+              <div className="sidebar-logo">
+                <Film className="sidebar-logo-icon" />
+                <span className="sidebar-logo-text">Camcine</span>
+              </div>
+              {userRole && (
+                <span className={`sidebar-role-badge ${userRole}`}>
+                  {roleLabels[userRole].toUpperCase()}
+                </span>
+              )}
             </div>
           </div>
 
@@ -105,11 +167,17 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
           </div>
 
           <div className="sidebar-footer">
-            <button className="sidebar-action-btn" aria-label="Notifications">
-              <Bell className="sidebar-action-icon" />
-              <span className="notification-dot" />
-              <span>Notifications</span>
-            </button>
+            {userRole === 'admin' && (
+              <button
+                className="sidebar-action-btn"
+                aria-label="Notifications"
+                onClick={() => handleNavClick('notifications')}
+              >
+                <Bell className="sidebar-action-icon" />
+                <span className="notification-dot" />
+                <span>Notifications</span>
+              </button>
+            )}
             <button className="sidebar-action-btn" aria-label="Logout" onClick={onLogout}>
               <LogOut className="sidebar-action-icon" />
               <span>Logout</span>
@@ -211,6 +279,43 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
           display: flex;
           align-items: center;
           gap: 14px;
+        }
+
+        .sidebar-brand {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 8px;
+        }
+
+        .sidebar-role-badge {
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          min-height: 22px;
+          padding: 4px 9px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0;
+          color: #ffffff;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .sidebar-role-badge.admin {
+          background: #800020;
+        }
+
+        .sidebar-role-badge.vendor {
+          background: #b7791f;
+        }
+
+        .sidebar-role-badge.user {
+          background: #2563eb;
+        }
+
+        .sidebar-role-badge.actor {
+          background: #7c3aed;
         }
 
         .sidebar-logo-icon {
