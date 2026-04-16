@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { LoginSection } from './sections/LoginSection';
 import { DashboardSection } from './sections/DashboardSection';
-import { VendorDashboardSection } from './sections/VendorDashboardSection';
-import { VendorEarningsSection } from './sections/VendorEarningsSection';
+import { managerDashboardSection } from './sections/managerDashboardSection';
+import { managerEarningsSection } from './sections/managerEarningsSection';
 import { ActorPortalSection } from './sections/ActorPortalSection';
 import { ActorQueueSection } from './sections/ActorQueueSection';
 import { SongsSection } from './sections/SongsSection';
@@ -36,14 +36,14 @@ export type Section =
   | 'songs'
   | 'news'
   | 'analytics'
-  | 'vendor-earnings'
+  | 'manager-earnings'
   | 'notifications';
-export type UserRole = 'admin' | 'vendor' | 'user' | 'actor';
+export type UserRole = 'admin' | 'manager' | 'user' | 'actor';
 type AddTitleType = 'movie' | 'series' | 'song' | 'news-clip';
 
 const defaultSections: Record<UserRole, Section> = {
   admin: 'dashboard',
-  vendor: 'dashboard',
+  manager: 'dashboard',
   user: 'subscriptions',
   actor: 'actor-portal',
 };
@@ -65,14 +65,14 @@ const roleSections: Record<UserRole, Section[]> = {
     'settings',
     'notifications',
   ],
-  vendor: [
+  manager: [
     'dashboard',
     'content',
     'content-detail',
     'add-title-type',
     'add-title',
     'songs',
-    'vendor-earnings',
+    'manager-earnings',
     'settings',
   ],
   user: ['subscriptions', 'payments', 'settings'],
@@ -147,8 +147,8 @@ function App() {
       case 'login':
         return <LoginSection onLogin={handleLogin} />;
       case 'dashboard':
-        if (userRole === 'vendor') {
-          return <VendorDashboardSection onNavigate={setCurrentSection} userId={userId} />;
+        if (userRole === 'manager') {
+          return <managerDashboardSection onNavigate={setCurrentSection} userId={userId} />;
         }
 
         return <DashboardSection onNavigate={setCurrentSection} />;
@@ -204,8 +204,8 @@ function App() {
         return <NewsManagerSection onNavigate={setCurrentSection} />;
       case 'analytics':
         return <AnalyticsSection onNavigate={setCurrentSection} />;
-      case 'vendor-earnings':
-        return <VendorEarningsSection userId={userId} />;
+      case 'manager-earnings':
+        return <managerEarningsSection userId={userId} />;
       case 'notifications':
         return <NotificationsSection onNavigate={setCurrentSection} />;
       default:

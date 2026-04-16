@@ -8,14 +8,14 @@ interface LoginSectionProps {
 
 const credentials: Record<UserRole, { id: string; password: string }> = {
   admin: { id: 'admin001', password: 'admin123' },
-  vendor: { id: 'vendor001', password: 'vendor123' },
+  manager: { id: 'manager001', password: 'manager123' },
   user: { id: 'user001', password: 'user123' },
   actor: { id: 'actor001', password: 'actor123' },
 };
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Admin',
-  vendor: 'Vendor',
+  manager: 'manager',
   user: 'User',
   actor: 'Actor',
 };

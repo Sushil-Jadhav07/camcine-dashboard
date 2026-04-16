@@ -49,11 +49,11 @@ const adminNavItems: NavItem[] = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
 ];
 
-const vendorNavItems: NavItem[] = [
+const managerNavItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'content', label: 'My Content', icon: Film },
   { id: 'songs', label: 'My Songs', icon: ListMusic },
-  { id: 'vendor-earnings', label: 'My Earnings', icon: Wallet },
+  { id: 'manager-earnings', label: 'My Earnings', icon: Wallet },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -70,7 +70,7 @@ const actorNavItems: NavItem[] = [
 
 const navItemsByRole: Record<UserRole, NavItem[]> = {
   admin: adminNavItems,
-  vendor: vendorNavItems,
+  manager: managerNavItems,
   user: userNavItems,
   actor: actorNavItems,
 };
@@ -79,7 +79,7 @@ const getNavItems = (role: UserRole): NavItem[] => navItemsByRole[role];
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Admin',
-  vendor: 'Vendor',
+  manager: 'manager',
   user: 'User',
   actor: 'Actor',
 };
@@ -306,7 +306,7 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
           background: #800020;
         }
 
-        .sidebar-role-badge.vendor {
+        .sidebar-role-badge.manager {
           background: #b7791f;
         }
 

@@ -58,7 +58,7 @@ const allTabs: TabDef[] = [
 
 const pageTitleByRole: Record<UserRole, string> = {
   admin: 'Platform Settings',
-  vendor: 'My Account',
+  manager: 'My Account',
   user: 'My Account',
   actor: 'My Account',
 };
@@ -69,7 +69,7 @@ function getTabsForRole(role: UserRole): TabDef[] {
       return allTabs.filter((t) =>
         ['general', 'branding', 'security', 'notifications', 'integrations', 'billing'].includes(t.id)
       );
-    case 'vendor':
+    case 'manager':
       return allTabs.filter((t) =>
         ['account', 'security', 'notifications', 'payout'].includes(t.id)
       );

@@ -31,7 +31,7 @@ interface ContentItem {
   status: 'published' | 'draft' | 'processing';
   updated: string;
   thumbnail: string;
-  vendor_id: string;
+  manager_id: string;
   episodes?: number;
   duration?: string;
   artist?: string;
@@ -39,19 +39,19 @@ interface ContentItem {
 }
 
 const mockContent: ContentItem[] = [
-  { id: 1, title: 'The Midnight Archive', type: 'movie', genre: 'Thriller', status: 'published', updated: '2 hours ago', vendor_id: 'vendor001', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop' },
-  { id: 2, title: 'Cyber Chronicles', type: 'series', genre: 'Sci-Fi', status: 'published', updated: '5 hours ago', vendor_id: 'vendor001', episodes: 12, thumbnail: 'https://images.unsplash.com/photo-1515630278258-407f66498911?w=200&h=300&fit=crop' },
-  { id: 3, title: 'Echoes of Tomorrow', type: 'movie', genre: 'Drama', status: 'draft', updated: '1 day ago', vendor_id: 'vendor002', thumbnail: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=200&h=300&fit=crop' },
-  { id: 4, title: 'Neon Dreams', type: 'series', genre: 'Crime', status: 'processing', updated: '2 days ago', vendor_id: 'vendor002', episodes: 8, thumbnail: 'https://images.unsplash.com/photo-1594909122849-11daa2a0cf2b?w=200&h=300&fit=crop' },
-  { id: 5, title: 'The Last Horizon', type: 'movie', genre: 'Adventure', status: 'published', updated: '3 days ago', vendor_id: 'vendor003', thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200&h=300&fit=crop' },
-  { id: 6, title: 'Shadow Protocol', type: 'series', genre: 'Action', status: 'draft', updated: '4 days ago', vendor_id: 'vendor001', episodes: 10, thumbnail: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=200&h=300&fit=crop' },
-  { id: 7, title: 'Silent Waters', type: 'movie', genre: 'Mystery', status: 'published', updated: '5 days ago', vendor_id: 'vendor004', thumbnail: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=200&h=300&fit=crop' },
-  { id: 8, title: 'Urban Legends', type: 'series', genre: 'Horror', status: 'processing', updated: '1 week ago', vendor_id: 'vendor003', episodes: 6, thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200&h=300&fit=crop' },
-  { id: 9, title: 'Glass House', type: 'short', genre: 'Drama', status: 'published', updated: '1 week ago', vendor_id: 'vendor001', duration: '18 min', thumbnail: 'https://images.unsplash.com/photo-1497015289639-54688650d173?w=200&h=300&fit=crop' },
-  { id: 10, title: 'Kesariya Dhun', type: 'song', genre: 'Film Song', status: 'published', updated: '2 days ago', vendor_id: 'vendor001', artist: 'Aarav Mehta', duration: '4:23', thumbnail: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop' },
-  { id: 11, title: 'Kaveri Raagam', type: 'song', genre: 'Classical', status: 'draft', updated: '3 days ago', vendor_id: 'vendor002', artist: 'Nila Subramaniam', duration: '6:12', thumbnail: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=300&h=300&fit=crop' },
-  { id: 12, title: 'Mumbai Rain Alert', type: 'news-clip', genre: 'News', status: 'published', updated: '45 min ago', vendor_id: 'vendor001', duration: '3:12', isLive: true, thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=300&h=300&fit=crop' },
-  { id: 13, title: 'Delhi Policy Brief', type: 'news-clip', genre: 'News', status: 'published', updated: '2 hours ago', vendor_id: 'vendor002', duration: '6:40', isLive: false, thumbnail: 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=300&h=300&fit=crop' },
+  { id: 1, title: 'The Midnight Archive', type: 'movie', genre: 'Thriller', status: 'published', updated: '2 hours ago', manager_id: 'manager001', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200&h=300&fit=crop' },
+  { id: 2, title: 'Cyber Chronicles', type: 'series', genre: 'Sci-Fi', status: 'published', updated: '5 hours ago', manager_id: 'manager001', episodes: 12, thumbnail: 'https://images.unsplash.com/photo-1515630278258-407f66498911?w=200&h=300&fit=crop' },
+  { id: 3, title: 'Echoes of Tomorrow', type: 'movie', genre: 'Drama', status: 'draft', updated: '1 day ago', manager_id: 'manager002', thumbnail: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=200&h=300&fit=crop' },
+  { id: 4, title: 'Neon Dreams', type: 'series', genre: 'Crime', status: 'processing', updated: '2 days ago', manager_id: 'manager002', episodes: 8, thumbnail: 'https://images.unsplash.com/photo-1594909122849-11daa2a0cf2b?w=200&h=300&fit=crop' },
+  { id: 5, title: 'The Last Horizon', type: 'movie', genre: 'Adventure', status: 'published', updated: '3 days ago', manager_id: 'manager003', thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200&h=300&fit=crop' },
+  { id: 6, title: 'Shadow Protocol', type: 'series', genre: 'Action', status: 'draft', updated: '4 days ago', manager_id: 'manager001', episodes: 10, thumbnail: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=200&h=300&fit=crop' },
+  { id: 7, title: 'Silent Waters', type: 'movie', genre: 'Mystery', status: 'published', updated: '5 days ago', manager_id: 'manager004', thumbnail: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=200&h=300&fit=crop' },
+  { id: 8, title: 'Urban Legends', type: 'series', genre: 'Horror', status: 'processing', updated: '1 week ago', manager_id: 'manager003', episodes: 6, thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200&h=300&fit=crop' },
+  { id: 9, title: 'Glass House', type: 'short', genre: 'Drama', status: 'published', updated: '1 week ago', manager_id: 'manager001', duration: '18 min', thumbnail: 'https://images.unsplash.com/photo-1497015289639-54688650d173?w=200&h=300&fit=crop' },
+  { id: 10, title: 'Kesariya Dhun', type: 'song', genre: 'Film Song', status: 'published', updated: '2 days ago', manager_id: 'manager001', artist: 'Aarav Mehta', duration: '4:23', thumbnail: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&h=300&fit=crop' },
+  { id: 11, title: 'Kaveri Raagam', type: 'song', genre: 'Classical', status: 'draft', updated: '3 days ago', manager_id: 'manager002', artist: 'Nila Subramaniam', duration: '6:12', thumbnail: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=300&h=300&fit=crop' },
+  { id: 12, title: 'Mumbai Rain Alert', type: 'news-clip', genre: 'News', status: 'published', updated: '45 min ago', manager_id: 'manager001', duration: '3:12', isLive: true, thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=300&h=300&fit=crop' },
+  { id: 13, title: 'Delhi Policy Brief', type: 'news-clip', genre: 'News', status: 'published', updated: '2 hours ago', manager_id: 'manager002', duration: '6:40', isLive: false, thumbnail: 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=300&h=300&fit=crop' },
 ];
 
 const genres = ['All', 'Action', 'Adventure', 'Crime', 'Drama', 'Horror', 'Mystery', 'Sci-Fi', 'Thriller', 'Film Song', 'Classical', 'News'];
@@ -85,8 +85,8 @@ export function ContentLibrarySection({ onNavigate, userRole, userId }: ContentL
   }, []);
 
   useEffect(() => {
-    let filtered = userRole === 'vendor'
-      ? content.filter(item => item.vendor_id === userId)
+    let filtered = userRole === 'manager'
+      ? content.filter(item => item.manager_id === userId)
       : content;
 
     if (searchQuery) {
@@ -174,7 +174,7 @@ export function ContentLibrarySection({ onNavigate, userRole, userId }: ContentL
           }}
         >
           <div>
-            <h1>{userRole === 'vendor' ? 'My Content' : 'Content Library'}</h1>
+            <h1>{userRole === 'manager' ? 'My Content' : 'Content Library'}</h1>
             <p>Search, filter, and update metadata in bulk.</p>
           </div>
           <button 
@@ -310,7 +310,7 @@ export function ContentLibrarySection({ onNavigate, userRole, userId }: ContentL
                 </div>
                 {expandedItemId === item.id && (
                   <div className="expanded-detail">
-                    <span>Vendor: {item.vendor_id}</span>
+                    <span>manager: {item.manager_id}</span>
                     <span>Updated: {item.updated}</span>
                     {item.type === 'series' && (
                       <strong className="episode-pricing">Episode Pricing: ₹5/ep</strong>
@@ -333,7 +333,7 @@ export function ContentLibrarySection({ onNavigate, userRole, userId }: ContentL
                 <button className="action-btn" title="Edit">
                   <Edit2 />
                 </button>
-                {(userRole === 'admin' || item.vendor_id === userId) && (
+                {(userRole === 'admin' || item.manager_id === userId) && (
                   <button className="action-btn danger" title="Delete">
                     <Trash2 />
                   </button>

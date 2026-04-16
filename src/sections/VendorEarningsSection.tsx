@@ -15,7 +15,7 @@ import {
   Wallet,
 } from 'lucide-react';
 
-interface VendorEarningsSectionProps {
+interface managerEarningsSectionProps {
   userId: string;
 }
 
@@ -96,7 +96,7 @@ const getStatusBadge = (status: EarningsStatus) => (
   </span>
 );
 
-export function VendorEarningsSection({ userId }: VendorEarningsSectionProps) {
+export function managerEarningsSection({ userId }: managerEarningsSectionProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedRange, setSelectedRange] = useState<DateRange>('This Month');
   const [currentPage, setCurrentPage] = useState(1);
@@ -113,18 +113,18 @@ export function VendorEarningsSection({ userId }: VendorEarningsSectionProps) {
   );
 
   return (
-    <section className="vendor-earnings-section">
+    <section className="manager-earnings-section">
       <div
-        className="vendor-earnings-bg"
+        className="manager-earnings-bg"
         style={{
           opacity: isVisible ? 1 : 0,
           transform: isVisible ? 'scale(1)' : 'scale(1.06)',
           transition: 'opacity 0.9s ease, transform 0.9s ease',
         }}
       />
-      <div className="vendor-earnings-overlay" />
+      <div className="manager-earnings-overlay" />
 
-      <div className="vendor-earnings-content">
+      <div className="manager-earnings-content">
         <div
           className="earnings-header"
           style={{
@@ -351,13 +351,13 @@ export function VendorEarningsSection({ userId }: VendorEarningsSectionProps) {
       </div>
 
       <style>{`
-        .vendor-earnings-section {
+        .manager-earnings-section {
           position: relative;
           min-height: 100vh;
           padding: 28px 0 56px;
         }
 
-        .vendor-earnings-bg {
+        .manager-earnings-bg {
           position: fixed;
           inset: 0;
           background-image: url('/dashboard_bg.jpg');
@@ -366,7 +366,7 @@ export function VendorEarningsSection({ userId }: VendorEarningsSectionProps) {
           background-attachment: fixed;
         }
 
-        .vendor-earnings-overlay {
+        .manager-earnings-overlay {
           position: fixed;
           inset: 0;
           background: linear-gradient(
@@ -377,7 +377,7 @@ export function VendorEarningsSection({ userId }: VendorEarningsSectionProps) {
           );
         }
 
-        .vendor-earnings-content {
+        .manager-earnings-content {
           position: relative;
           z-index: 10;
           max-width: 1400px;
