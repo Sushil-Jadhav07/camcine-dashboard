@@ -11,6 +11,7 @@ class ApiError extends Error {
   }
 }
 
+
 class ApiClient {
   constructor() {
     this.baseURL = API_BASE_URL;
