@@ -1,222 +1,191 @@
 import { useEffect, useState } from 'react';
-import { Globe, Heart, Mic2, Music2, Play, Search, Upload } from 'lucide-react';
+import { AlertCircle, Clock, Edit2, Eye, Music, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { contentService } from '../services/content.js';
 
-const mockSongs = [
-  { id: 1, title: 'Midnight Dreams', artist: 'Luna Sky', duration: '3:45', plays: 125000, likes: 8900, genre: 'Electronic', album: 'Night Sessions', uploaded: '2024-03-15' },
-  { id: 2, title: 'Golden Hour', artist: 'Sunset Band', duration: '4:12', plays: 89000, likes: 5600, genre: 'Indie Rock', album: 'Horizon', uploaded: '2024-03-14' },
-  { id: 3, title: 'Urban Rhythm', artist: 'City Beats', duration: '3:28', plays: 156000, likes: 12300, genre: 'Hip Hop', album: 'Street Life', uploaded: '2024-03-13' },
-  { id: 4, title: 'Ocean Waves', artist: 'Coastal Sound', duration: '5:01', plays: 67000, likes: 4200, genre: 'Ambient', album: 'Nature Sounds', uploaded: '2024-03-12' },
-  { id: 5, title: 'Electric Feel', artist: 'Voltage', duration: '3:55', plays: 234000, likes: 18900, genre: 'Synthwave', album: 'Neon Nights', uploaded: '2024-03-11' },
-];
+const genres = ['Music', 'Pop', 'Hip-Hop', 'R&B', 'Electronic', 'Rock', 'Indie', 'Classical', 'Jazz'];
+const emptyForm = { title: '', artist: '', album: '', genre: 'Music', duration: '' };
 
-const genres = ['All', 'Electronic', 'Indie Rock', 'Hip Hop', 'Ambient', 'Synthwave', 'Pop', 'Rock', 'Jazz'];
+function parseDuration(value) {
+  if (!value) return undefined;
+  if (/^\d+$/.test(value)) return Number(value);
+  const parts = value.split(':').map(Number);
+  if (parts.some(Number.isNaN)) return undefined;
+  return parts.length === 2 ? (parts[0] * 60) + parts[1] : (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+}
 
-const formatNumber = (num) => {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-  return String(num);
-};
+function durationLabel(seconds) {
+  if (!seconds) return 'N/A';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 export function SongsSection() {
-  const [songs] = useState(mockSongs);
-  const [filteredSongs, setFilteredSongs] = useState(mockSongs);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState('All');
-  const [sortBy, setSortBy] = useState('plays');
-  const [activeSongId, setActiveSongId] = useState(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [songs, setSongs] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0 });
+  const [q, setQ] = useState('');
+  const [visible, setVisible] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 120);
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  useEffect(() => { fetchSongs(); }, [q]);
 
-  useEffect(() => {
-    let filtered = [...songs];
-
-    if (searchQuery) {
-      filtered = filtered.filter((song) =>
-        song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        song.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        song.album.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  const fetchSongs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await contentService.getContent({ type: 'song', search: q, limit: 50, sort: 'newest' });
+      const data = res.data || {};
+      const list = data.content || data.items || data || [];
+      setSongs(Array.isArray(list) ? list : []);
+      setPagination(data.pagination || { total: Array.isArray(list) ? list.length : 0 });
+    } catch (e) {
+      setError(e.message || 'Failed to fetch songs');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (selectedGenre !== 'All') {
-      filtered = filtered.filter((song) => song.genre === selectedGenre);
-    }
-
-    filtered.sort((a, b) => {
-      if (sortBy === 'plays') return b.plays - a.plays;
-      if (sortBy === 'likes') return b.likes - a.likes;
-      if (sortBy === 'title') return a.title.localeCompare(b.title);
-      if (sortBy === 'artist') return a.artist.localeCompare(b.artist);
-      return new Date(b.uploaded) - new Date(a.uploaded);
+  const openAdd = () => { setEditing(null); setForm(emptyForm); setShowAdd(true); };
+  const openEdit = song => {
+    setEditing(song);
+    setForm({
+      title: song.title || '',
+      artist: song.director || '',
+      album: song.album || '',
+      genre: Array.isArray(song.genre) ? song.genre[0] || 'Music' : song.genre || 'Music',
+      duration: song.duration_seconds ? durationLabel(song.duration_seconds) : '',
     });
+    setShowAdd(true);
+  };
+  const close = () => { setShowAdd(false); setEditing(null); setForm(emptyForm); };
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-    setFilteredSongs(filtered);
-  }, [searchQuery, selectedGenre, sortBy, songs]);
+  const submit = async e => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setError(null);
+      const payload = {
+        title: form.title.trim(),
+        type: 'song',
+        description: [form.artist, form.album].filter(Boolean).join(' - '),
+        language: 'Hindi',
+        genre: [form.genre],
+        director: form.artist.trim() || undefined,
+        release_year: new Date().getFullYear(),
+        rating: 'U',
+        is_free: true,
+        price_tvod: 0,
+        duration_seconds: parseDuration(form.duration),
+      };
+      Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+      if (editing) await contentService.updateContent(editing.id || editing._id, payload);
+      else await contentService.createContent(payload);
+      close();
+      fetchSongs();
+    } catch (e2) {
+      setError(e2.message || 'Failed to save song');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const totalPlays = songs.reduce((sum, song) => sum + song.plays, 0);
-  const totalLikes = songs.reduce((sum, song) => sum + song.likes, 0);
+  const del = async id => {
+    if (!confirm('Archive this song?')) return;
+    try {
+      await contentService.archiveContent(id);
+      fetchSongs();
+    } catch (e) {
+      setError(e.message || 'Failed to archive song');
+    }
+  };
 
   return (
-    <section className={`dashboard-shell ${isVisible ? 'visible' : ''}`}>
-      <div className="shell-container">
-        <div className="dashboard-topbar">
-          <div className="topbar-title">
-            <div className="topbar-icon">
-              <Music2 size={18} />
-            </div>
-            <div>
-              <h1>Music Library</h1>
-              <p>Manage your music catalog and track performance.</p>
-            </div>
-          </div>
-          <div className="topbar-actions">
-            <button className="btn btn-primary">
-              <Upload size={16} />
-              Upload Song
-            </button>
+    <div className={`page ${visible ? 'visible' : ''}`}>
+      <div className="page-inner">
+        <div className="ph">
+          <div className="ph-left"><h1>Songs</h1><p>{pagination.total || songs.length} tracks from backend</p></div>
+          <div className="ph-right">
+            <button className="btn btn-secondary btn-sm" onClick={fetchSongs} disabled={loading}><RefreshCw size={13} className={loading ? 'spin-icon' : ''}/>Refresh</button>
+            <button className="btn btn-primary" onClick={openAdd}><Plus size={14}/>Add Song</button>
           </div>
         </div>
 
-        <div className="metric-grid">
-          <article className="metric-card">
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <span className="metric-label">Total Songs</span>
-                <strong className="metric-value">{songs.length}</strong>
-              </div>
-              <div className="topbar-icon" style={{ width: 32, height: 32, borderRadius: 10 }}>
-                <Music2 size={14} />
-              </div>
-            </div>
-          </article>
-
-          <article className="metric-card">
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <span className="metric-label">Total Plays</span>
-                <strong className="metric-value">{formatNumber(totalPlays)}</strong>
-              </div>
-              <div className="topbar-icon" style={{ width: 32, height: 32, borderRadius: 10 }}>
-                <Play size={14} />
-              </div>
-            </div>
-          </article>
-
-          <article className="metric-card">
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <span className="metric-label">Total Likes</span>
-                <strong className="metric-value">{formatNumber(totalLikes)}</strong>
-              </div>
-              <div className="topbar-icon" style={{ width: 32, height: 32, borderRadius: 10 }}>
-                <Heart size={14} />
-              </div>
-            </div>
-          </article>
-        </div>
-
-        <div className="surface-panel">
-          <div className="toolbar">
-            <div className="toolbar-group" style={{ flex: 1 }}>
-              <div className="input-shell" style={{ width: '100%' }}>
-                <Search size={16} />
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="Search songs, artists, or albums..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                />
-              </div>
-            </div>
-            <div className="toolbar-group">
-              <select className="select" value={selectedGenre} onChange={(event) => setSelectedGenre(event.target.value)}>
-                {genres.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
-              </select>
-              <select className="select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                <option value="plays">Sort by Plays</option>
-                <option value="likes">Sort by Likes</option>
-                <option value="title">Sort by Title</option>
-                <option value="artist">Sort by Artist</option>
-                <option value="date">Sort by Date</option>
-              </select>
-            </div>
+        <div className="fbar">
+          <div className="fsearch" style={{flex:1}}>
+            <Search size={15} style={{color:'rgba(255,255,255,.30)',flexShrink:0}}/>
+            <input placeholder="Search songs..." value={q} onChange={e => setQ(e.target.value)}/>
+            {q && <button onClick={() => setQ('')} style={{background:'none',border:'none',color:'rgba(255,255,255,.30)',cursor:'pointer',padding:0}}><X size={14}/></button>}
           </div>
         </div>
 
-        <div className="list-stack">
-          {filteredSongs.map((song) => (
-            <div key={song.id} className="list-card" style={{ alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0, flex: 1 }}>
-                <div
-                  style={{
-                    width: 54,
-                    height: 54,
-                    borderRadius: 14,
-                    display: 'grid',
-                    placeItems: 'center',
-                    background: 'var(--accent-soft)',
-                    color: 'var(--accent)',
-                    position: 'relative',
-                    flexShrink: 0,
-                  }}
-                >
-                  <Music2 size={24} />
-                  <button
-                    className="btn-icon"
-                    onClick={() => setActiveSongId(activeSongId === song.id ? null : song.id)}
-                    style={{
-                      position: 'absolute',
-                      right: -8,
-                      bottom: -8,
-                      width: 28,
-                      height: 28,
-                      borderRadius: 999,
-                      background: 'var(--accent)',
-                      color: '#fff',
-                      border: '2px solid var(--panel)',
-                    }}
-                  >
-                    <Play size={12} />
-                  </button>
-                </div>
+        {error && <div className="api-error"><AlertCircle size={15}/>{error}</div>}
 
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <strong style={{ display: 'block', marginBottom: 4 }}>{song.title}</strong>
-                  <div className="subtle" style={{ marginBottom: 8 }}>{song.artist}</div>
-                  <div className="inline-meta">
-                    <span className="pill">{song.album}</span>
-                    <span className="pill">{song.genre}</span>
-                    <span className="pill">{song.duration}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="inline-meta" style={{ alignItems: 'center', justifyContent: 'flex-end', minWidth: 240 }}>
-                <span><Play size={14} /> {formatNumber(song.plays)}</span>
-                <span><Heart size={14} /> {formatNumber(song.likes)}</span>
-                <button className="btn-icon"><Globe size={14} /></button>
-                <button className="btn-icon"><Mic2 size={14} /></button>
-              </div>
-            </div>
-          ))}
-
-          {filteredSongs.length === 0 && (
-            <div className="surface-panel">
-              <div className="empty-state">
-                <div>
-                  <h3>No songs found</h3>
-                  <p>Try adjusting your search or genre filter.</p>
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead><tr><th>Song</th><th>Artist</th><th>Genre</th><th>Duration</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6}><div className="loader"><span className="spin"/>Loading songs...</div></td></tr>
+              ) : songs.length ? songs.map(song => (
+                <tr key={song.id || song._id}>
+                  <td><div style={{fontWeight:700,fontSize:13}}>{song.title}</div><div style={{fontSize:11,color:'rgba(255,255,255,.35)'}}>{song.description}</div></td>
+                  <td style={{fontSize:13,color:'rgba(255,255,255,.55)'}}>{song.director || 'N/A'}</td>
+                  <td><span className="badge b-gray">{Array.isArray(song.genre) ? song.genre[0] : song.genre || 'Music'}</span></td>
+                  <td style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:4}}><Clock size={11}/>{durationLabel(song.duration_seconds)}</td>
+                  <td><span className={`badge ${song.status === 'published' ? 'b-green' : 'b-yellow'}`}>{song.status || 'draft'}</span></td>
+                  <td><div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(song)}><Edit2 size={13}/></button>
+                    <button className="btn btn-danger btn-icon btn-sm" onClick={() => del(song.id || song._id)}><Trash2 size={13}/></button>
+                  </div></td>
+                </tr>
+              )) : (
+                <tr><td colSpan={6}><div className="empty"><Music size={32}/><p>No songs found</p></div></td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-    </section>
+
+      {showAdd && (
+        <div className="modal-bg" onClick={e => e.target === e.currentTarget && close()}>
+          <div className="modal-box">
+            <div className="modal-hdr"><h3>{editing ? 'Edit Song' : 'Add Song'}</h3><button className="modal-close" onClick={close}><X size={15}/></button></div>
+            <form onSubmit={submit}>
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div className="fg"><label className="lbl">Title *</label><input className="inp" value={form.title} onChange={e => setF('title', e.target.value)} required/></div>
+                <div className="form-grid-2">
+                  <div className="fg"><label className="lbl">Artist</label><input className="inp" value={form.artist} onChange={e => setF('artist', e.target.value)}/></div>
+                  <div className="fg"><label className="lbl">Album</label><input className="inp" value={form.album} onChange={e => setF('album', e.target.value)}/></div>
+                </div>
+                <div className="form-grid-2">
+                  <div className="fg"><label className="lbl">Genre</label><select className="inp fselect" value={form.genre} onChange={e => setF('genre', e.target.value)}>{genres.map(g => <option key={g}>{g}</option>)}</select></div>
+                  <div className="fg"><label className="lbl">Duration</label><input className="inp" value={form.duration} onChange={e => setF('duration', e.target.value)} placeholder="3:45 or seconds"/></div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={close}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Song'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <style>{`${PAGE_STYLES}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spin-icon{animation:spin .75s linear infinite}
+        .spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.12);border-top-color:rgba(255,255,255,.55);display:inline-block;animation:spin .75s linear infinite}
+        .loader{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px;color:rgba(255,255,255,.35)}
+        .api-error{display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.18);border-radius:10px;font-size:13px;color:#fca5a5;margin-bottom:12px}
+      `}</style>
+    </div>
   );
 }

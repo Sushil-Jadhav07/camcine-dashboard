@@ -1,5 +1,4 @@
 import { apiClient, ApiError } from './api.js';
-import { buildUserUpdatePayload, mapRoleToApi, normalizeUserFromApi, normalizeUsersFromApi } from './roleMapper.js';
 
 export const userService = {
   async getAllUsers(params = {}) {
@@ -7,12 +6,9 @@ export const userService = {
       const response = await apiClient.get('/users', params);
       
       if (response.success) {
-        const users = response.data?.users ? normalizeUsersFromApi(response.data.users) : normalizeUsersFromApi(response.data);
         return {
           success: true,
-          data: response.data?.users
-            ? { ...response.data, users }
-            : users
+          data: response.data
         };
       }
       
@@ -32,7 +28,7 @@ export const userService = {
       if (response.success) {
         return {
           success: true,
-          data: normalizeUserFromApi(response.data?.user || response.data)
+          data: response.data
         };
       }
       
@@ -47,13 +43,13 @@ export const userService = {
 
   async updateUser(userId, userData) {
     try {
-      const response = await apiClient.put(`/users/${userId}`, buildUserUpdatePayload(userData));
+      const response = await apiClient.put(`/users/${userId}`, userData);
       
       if (response.success) {
         return {
           success: true,
           message: response.message || 'User updated successfully',
-          data: normalizeUserFromApi(response.data?.user || response.data)
+          data: response.data
         };
       }
       
@@ -88,15 +84,12 @@ export const userService = {
 
   async getUsersByRole(role, params = {}) {
     try {
-      const response = await apiClient.get('/users', { ...params, role: mapRoleToApi(role) });
+      const response = await apiClient.get('/users', { ...params, role });
       
       if (response.success) {
-        const users = response.data?.users ? normalizeUsersFromApi(response.data.users) : normalizeUsersFromApi(response.data);
         return {
           success: true,
-          data: response.data?.users
-            ? { ...response.data, users }
-            : users
+          data: response.data
         };
       }
       
@@ -114,12 +107,9 @@ export const userService = {
       const response = await apiClient.get('/users', { ...params, search: query });
       
       if (response.success) {
-        const users = response.data?.users ? normalizeUsersFromApi(response.data.users) : normalizeUsersFromApi(response.data);
         return {
           success: true,
-          data: response.data?.users
-            ? { ...response.data, users }
-            : users
+          data: response.data
         };
       }
       

@@ -1,774 +1,335 @@
 import { useState, useEffect } from 'react';
-import {
-  Plus,
-  Film,
-  Music,
-  Tv,
-  Radio,
-  Upload,
-  X,
-  Save,
-  ArrowLeft,
-  Calendar,
-  Clock,
-  Tag,
-  User,
-  DollarSign
-} from 'lucide-react';
-import { UserRole } from '../constants/sections';
+import { Upload, X, Save, ArrowLeft, Calendar, Clock, DollarSign, Check, AlertCircle, Film, Tv, Music } from 'lucide-react';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { contentService } from '../services/content.js';
 
-const titleTypes = [
-  { id: 'film', name: 'Film', icon: Film, description: 'Feature films and movies' },
-  { id: 'series', name: 'Series', icon: Tv, description: 'TV series and shows' },
-  { id: 'music', name: 'Music', icon: Music, description: 'Music videos and concerts' },
-  { id: 'podcast', name: 'Podcast', icon: Radio, description: 'Audio podcasts and radio shows' }
-];
+const genres = ['Action','Comedy','Drama','Horror','Sci-Fi','Thriller','Romance','Documentary','Animation','Music','Sports','News','Crime','Fantasy','Adventure'];
+const languages = ['English','Hindi','Tamil','Telugu','Bengali','Marathi','Kannada','Gujarati','Punjabi','Malayalam'];
+const ratings = ['U','UA','A','S'];
 
-const genres = [
-  'Action', 'Comedy', 'Drama', 'Horror', 'Sci-Fi', 'Thriller', 'Romance', 'Documentary', 'Animation', 'Music', 'Sports', 'News'
-];
+// Map our UI type ids to API type values
+const typeToApiType = {
+  movie: 'movie',
+  series: 'show',
+  music: 'song',
+  film: 'movie',
+  show: 'show',
+  song: 'song',
+};
 
 export function AddTitleSection({ onNavigate, titleType }) {
-  const [selectedType, setSelectedType] = useState('');
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    genre: '',
-    releaseDate: '',
-    duration: '',
-    director: '',
-    cast: '',
-    language: '',
-    rating: '',
-    price: '',
-    tags: '',
-    thumbnail: null,
-    video: null
+  const apiType = typeToApiType[titleType] || 'movie';
+  const isShow = apiType === 'show';
+  const isSong = apiType === 'song';
+
+  const [form, setForm] = useState({
+    title: '', description: '', language: 'Hindi',
+    genre: [], director: '', release_year: new Date().getFullYear(),
+    rating: 'U', is_free: true, price_tvod: 0, duration_seconds: '',
   });
-  const [isVisible, setIsVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [posterFile, setPosterFile] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
+  const [trailerFile, setTrailerFile] = useState(null);
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState('');
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+  const [createdId, setCreatedId] = useState(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  useEffect(() => {
-    if (titleType) {
-      setSelectedType(titleType);
-    }
-  }, [titleType]);
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleFileUpload = (field, file) => {
-    setFormData(prev => ({ ...prev, [field]: file }));
+  const toggleGenre = (g) => {
+    setForm(p => ({
+      ...p,
+      genre: p.genre.includes(g) ? p.genre.filter(x => x !== g) : [...p.genre, g]
+    }));
   };
 
   const handleSubmit = async (e) => {
-    e?.preventDefault?.();
-    setIsSubmitting(true);
-    
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 10) {
-      setUploadProgress(i);
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSubmitting(false);
-    setUploadProgress(0);
-    
-    // Reset form or navigate back
-    if (confirm('Title added successfully! Would you like to add another title?')) {
-      setFormData({
-        title: '',
-        description: '',
-        genre: '',
-        releaseDate: '',
-        duration: '',
-        director: '',
-        cast: '',
-        language: '',
-        rating: '',
-        price: '',
-        tags: '',
-        thumbnail: null,
-        video: null
-      });
-      setSelectedType(titleType || '');
-    } else {
-      onNavigate('content');
+    e.preventDefault();
+    setLoading(true); setError(null);
+    try {
+      // 1. Create content
+      setUploadPhase('Creating content...');
+      const payload = {
+        title: form.title.trim(),
+        type: apiType,
+        description: form.description.trim(),
+        language: form.language,
+        genre: form.genre,
+        director: form.director.trim() || undefined,
+        release_year: Number(form.release_year),
+        rating: form.rating,
+        is_free: form.is_free,
+        price_tvod: form.is_free ? 0 : Number(form.price_tvod),
+        duration_seconds: form.duration_seconds ? Number(form.duration_seconds) : undefined,
+      };
+      // Remove undefined fields
+      Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+      const r = await contentService.createContent(payload);
+      if (!r.success && !r.data) throw new Error('Failed to create content');
+      const contentId = r.data?.content?.id || r.data?.content?._id || r.data?.id || r.data?._id;
+      if (!contentId) throw new Error('Content was created but the API did not return an ID.');
+      setCreatedId(contentId);
+
+      // 2. Upload poster if provided
+      if (posterFile && contentId) {
+        setUploadPhase('Uploading poster...');
+        await contentService.uploadImage(posterFile, contentId, 'content', 'poster', true);
+      }
+
+      // 3. Upload trailer if provided
+      if (trailerFile && contentId) {
+        setUploadPhase('Uploading trailer...');
+        await contentService.uploadTrailer(trailerFile, contentId, true);
+      }
+
+      // 4. Upload video if provided (not for shows — episodes handle that)
+      if (videoFile && contentId && !isShow) {
+        setUploadPhase('Uploading video...');
+        await contentService.uploadVideo(videoFile, contentId, 'content', true);
+      }
+
+      // 5. Publish immediately
+      if (contentId) {
+        setUploadPhase('Publishing...');
+        await contentService.updateStatus(contentId, 'published');
+      }
+
+      setUploadPhase('');
+      setDone(true);
+      setTimeout(() => { if (onNavigate) onNavigate('content'); }, 2000);
+    } catch(err) {
+      setError(err.message || 'Something went wrong');
+      setUploadPhase('');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const renderTypeSelection = () => (
-    <div className="type-selection">
-      <h2>What type of title are you adding?</h2>
-      <div className="type-grid">
-        {titleTypes.map((type) => {
-          const Icon = type.icon;
-          return (
-            <button
-              key={type.id}
-              className={`type-card ${selectedType === type.id ? 'selected' : ''}`}
-              onClick={() => setSelectedType(type.id)}
-            >
-              <div className="type-icon">
-                <Icon size={32} />
-              </div>
-              <h3>{type.name}</h3>
-              <p>{type.description}</p>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const renderForm = () => {
-    const selectedTypeData = titleTypes.find(t => t.id === selectedType);
-    const Icon = selectedTypeData?.icon || Film;
-
-    return (
-      <div className="add-title-form">
-        <div className="form-header">
-          <div className="header-left">
-            <button className="btn btn-secondary" type="button" onClick={() => onNavigate('add-title-type')}>
-              <ArrowLeft size={16} />
-              Back
-            </button>
-            <div className="form-title">
-              <Icon size={24} />
-              <h2>Add {selectedTypeData?.name}</h2>
-            </div>
-          </div>
-          <div className="header-right">
-            <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : <><Save size={16} /> Save Title</>}
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="form-content">
-          <div className="form-grid">
-            {/* Left Column */}
-            <div className="form-column">
-              <div className="form-field">
-                <label>Title *</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange('title', e.target.value)}
-                  placeholder="Enter title"
-                  required
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Description *</label>
-                <textarea
-                  className="input textarea"
-                  rows={4}
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Enter description"
-                  required
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Genre *</label>
-                <select
-                  className="input"
-                  value={formData.genre}
-                  onChange={(e) => handleInputChange('genre', e.target.value)}
-                  required
-                >
-                  <option value="">Select genre</option>
-                  {genres.map(genre => (
-                    <option key={genre} value={genre}>{genre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-row">
-                <div className="form-field">
-                  <label>Release Date *</label>
-                  <input
-                    type="date"
-                    className="input"
-                    value={formData.releaseDate}
-                    onChange={(e) => handleInputChange('releaseDate', e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Duration *</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={formData.duration}
-                    onChange={(e) => handleInputChange('duration', e.target.value)}
-                    placeholder="e.g., 2:30:00"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-field">
-                <label>Director</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.director}
-                  onChange={(e) => handleInputChange('director', e.target.value)}
-                  placeholder="Enter director name"
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Cast</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.cast}
-                  onChange={(e) => handleInputChange('cast', e.target.value)}
-                  placeholder="Enter cast members (comma separated)"
-                />
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="form-column">
-              <div className="form-row">
-                <div className="form-field">
-                  <label>Language</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={formData.language}
-                    onChange={(e) => handleInputChange('language', e.target.value)}
-                    placeholder="e.g., English"
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Rating</label>
-                  <select
-                    className="input"
-                    value={formData.rating}
-                    onChange={(e) => handleInputChange('rating', e.target.value)}
-                  >
-                    <option value="">Select rating</option>
-                    <option value="G">G</option>
-                    <option value="PG">PG</option>
-                    <option value="PG-13">PG-13</option>
-                    <option value="R">R</option>
-                    <option value="NC-17">NC-17</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-field">
-                <label>Price</label>
-                <div className="price-input">
-                  <DollarSign size={16} />
-                  <input
-                    type="number"
-                    className="input"
-                    value={formData.price}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
-                    placeholder="0.00"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-
-              <div className="form-field">
-                <label>Tags</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.tags}
-                  onChange={(e) => handleInputChange('tags', e.target.value)}
-                  placeholder="Enter tags (comma separated)"
-                />
-              </div>
-
-              {/* File Uploads */}
-              <div className="upload-section">
-                <div className="form-field">
-                  <label>Thumbnail Image *</label>
-                  <div className="upload-area">
-                    <input
-                      type="file"
-                      id="thumbnail"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload('thumbnail', e.target.files[0])}
-                      style={{ display: 'none' }}
-                    />
-                    <label htmlFor="thumbnail" className="upload-label">
-                      {formData.thumbnail ? (
-                        <div className="file-preview">
-                          <img src={URL.createObjectURL(formData.thumbnail)} alt="Thumbnail" />
-                          <button type="button" className="remove-file" onClick={() => handleFileUpload('thumbnail', null)}>
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="upload-placeholder">
-                          <Upload size={24} />
-                          <span>Click to upload thumbnail</span>
-                          <small>PNG, JPG up to 10MB</small>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                </div>
-
-                <div className="form-field">
-                  <label>Video File *</label>
-                  <div className="upload-area">
-                    <input
-                      type="file"
-                      id="video"
-                      accept="video/*"
-                      onChange={(e) => handleFileUpload('video', e.target.files[0])}
-                      style={{ display: 'none' }}
-                    />
-                    <label htmlFor="video" className="upload-label">
-                      {formData.video ? (
-                        <div className="file-preview">
-                          <Film size={32} />
-                          <span>{formData.video.name}</span>
-                          <button type="button" className="remove-file" onClick={() => handleFileUpload('video', null)}>
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="upload-placeholder">
-                          <Upload size={24} />
-                          <span>Click to upload video</span>
-                          <small>MP4, AVI, MOV up to 2GB</small>
-                        </div>
-                      )}
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </form>
-
-        {/* Upload Progress */}
-        {isSubmitting && (
-          <div className="upload-progress">
-            <div className="progress-bar">
-              <div className="progress-fill" style={{ width: `${uploadProgress}%` }} />
-            </div>
-            <span>Uploading... {uploadProgress}%</span>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const typeLabel = apiType === 'movie' ? 'Movie' : apiType === 'show' ? 'TV Series' : 'Song';
+  const TypeIcon = apiType === 'movie' ? Film : apiType === 'show' ? Tv : Music;
 
   return (
-    <div className={`add-title-section ${isVisible ? 'visible' : ''}`}>
-      <div className="add-title-container">
-        <div className="add-title-header">
-          <div>
-            <h1>Add New Title</h1>
-            <p>Upload and manage your content library.</p>
+    <div className={`page ${visible ? 'visible' : ''}`}>
+      <div className="page-inner" style={{ maxWidth: 860 }}>
+        <div className="ph">
+          <div className="ph-left">
+            <h1>Add {typeLabel}</h1>
+            <p>Fill in the details for your new content</p>
+          </div>
+          <div className="ph-right">
+            <button className="btn btn-secondary btn-sm" onClick={() => onNavigate && onNavigate('add-title-type')}>
+              <ArrowLeft size={14}/>Back
+            </button>
           </div>
         </div>
 
-        <div className="add-title-content">
-          {!selectedType ? renderTypeSelection() : renderForm()}
-        </div>
+        {done ? (
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',gap:16}}>
+            <div style={{width:64,height:64,borderRadius:20,background:'rgba(34,197,94,.12)',border:'1px solid rgba(34,197,94,.22)',color:'#4ade80',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <Check size={28}/>
+            </div>
+            <div style={{fontSize:20,fontWeight:800,color:'#f5f5f5'}}>{typeLabel} Added!</div>
+            <div style={{fontSize:13,color:'rgba(255,255,255,.40)'}}>Redirecting to Content Library…</div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div style={{display:'flex',flexDirection:'column',gap:20}}>
+
+              {/* Basic Info */}
+              <div className="card">
+                <div style={{marginBottom:16}}><div className="card-title">Basic Information</div></div>
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  <div className="fg">
+                    <label className="lbl">Title *</label>
+                    <input className="inp" value={form.title} onChange={e => setF('title',e.target.value)} placeholder={`Enter ${typeLabel.toLowerCase()} title`} required/>
+                  </div>
+                  <div className="fg">
+                    <label className="lbl">Description</label>
+                    <textarea className="inp" rows={3} value={form.description} onChange={e => setF('description',e.target.value)} placeholder="Brief description of the content" style={{resize:'vertical'}}/>
+                  </div>
+                  <div className="form-grid-3">
+                    <div className="fg">
+                      <label className="lbl">Language</label>
+                      <select className="inp fselect" value={form.language} onChange={e => setF('language',e.target.value)}>
+                        {languages.map(l => <option key={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div className="fg">
+                      <label className="lbl">Rating</label>
+                      <select className="inp fselect" value={form.rating} onChange={e => setF('rating',e.target.value)}>
+                        {ratings.map(r => <option key={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="fg">
+                      <label className="lbl">Release Year</label>
+                      <input type="number" className="inp" min="1900" max="2099" value={form.release_year} onChange={e => setF('release_year',e.target.value)}/>
+                    </div>
+                  </div>
+                  {/* Genres */}
+                  <div className="fg">
+                    <label className="lbl">Genres</label>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:4}}>
+                      {genres.map(g => (
+                        <button key={g} type="button"
+                          className={`genre-chip ${form.genre.includes(g) ? 'selected' : ''}`}
+                          onClick={() => toggleGenre(g)}
+                        >{g}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Production Details */}
+              {!isSong && (
+                <div className="card">
+                  <div style={{marginBottom:16}}><div className="card-title">Production Details</div></div>
+                  <div className="form-grid-2" style={{gap:14}}>
+                    <div className="fg">
+                      <label className="lbl">Director</label>
+                      <input className="inp" value={form.director} onChange={e => setF('director',e.target.value)} placeholder="Director name"/>
+                    </div>
+                    {!isShow && (
+                      <div className="fg">
+                        <label className="lbl">Duration (seconds)</label>
+                        <div className="inp-wrap">
+                          <Clock size={14} className="inp-icon"/>
+                          <input type="number" className="inp" value={form.duration_seconds} onChange={e => setF('duration_seconds',e.target.value)} placeholder="e.g. 7200 for 2h"/>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Pricing */}
+              <div className="card">
+                <div style={{marginBottom:16}}><div className="card-title">Pricing</div></div>
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <button type="button"
+                      className={`toggle-pill ${form.is_free ? 'active' : ''}`}
+                      onClick={() => setF('is_free', true)}
+                    >Free</button>
+                    <button type="button"
+                      className={`toggle-pill ${!form.is_free ? 'active' : ''}`}
+                      onClick={() => setF('is_free', false)}
+                    >Paid (TVOD)</button>
+                  </div>
+                  {!form.is_free && (
+                    <div className="fg" style={{maxWidth:200}}>
+                      <label className="lbl">Price (₹)</label>
+                      <div className="inp-wrap">
+                        <DollarSign size={14} className="inp-icon"/>
+                        <input type="number" min="0" step="1" className="inp" value={form.price_tvod}
+                          onChange={e => setF('price_tvod',e.target.value)} placeholder="49"/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Media Uploads */}
+              <div className="card">
+                <div style={{marginBottom:16}}><div className="card-title">Media Files</div></div>
+                <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                  <FileUploadField
+                    label="Poster Image (JPG/PNG/WEBP, max 10MB)"
+                    accept="image/jpeg,image/png,image/webp"
+                    file={posterFile}
+                    onFile={setPosterFile}
+                  />
+                  <FileUploadField
+                    label="Trailer (MP4/MOV/WEBM, max 500MB)"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    file={trailerFile}
+                    onFile={setTrailerFile}
+                  />
+                  {!isShow && (
+                    <FileUploadField
+                      label={`Full Video (MP4/MKV/AVI, max 5GB)${isShow ? ' — Add episodes after creation' : ''}`}
+                      accept="video/mp4,video/x-matroska,video/x-msvideo,video/quicktime,video/webm"
+                      file={videoFile}
+                      onFile={setVideoFile}
+                      disabled={isShow}
+                    />
+                  )}
+                  {isShow && (
+                    <div style={{padding:'12px 14px',background:'rgba(59,130,246,.07)',border:'1px solid rgba(59,130,246,.15)',borderRadius:10,fontSize:13,color:'rgba(255,255,255,.50)'}}>
+                      ℹ️ For TV Series, add individual episodes after creating the show from the Content Library.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {error && (
+                <div style={{display:'flex',alignItems:'center',gap:10,padding:'13px 15px',background:'rgba(239,68,68,.07)',border:'1px solid rgba(239,68,68,.15)',borderRadius:12,color:'#fca5a5',fontSize:13}}>
+                  <AlertCircle size={16}/>{error}
+                </div>
+              )}
+
+              <div style={{display:'flex',justifyContent:'flex-end',gap:12}}>
+                <button type="button" className="btn btn-secondary" onClick={() => onNavigate && onNavigate('content')}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? (
+                    <><span className="spin-sm"/>{ uploadPhase || 'Saving…'}</>
+                  ) : (
+                    <><Save size={15}/>Save & Publish</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
       </div>
 
       <style>{`
-        .add-title-section {
-          min-height: 100vh;
-          padding: 28px 0 56px;
-          background: var(--bg-primary);
-          opacity: 0;
-          transform: translateY(20px);
-          transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-
-        .add-title-section.visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        .add-title-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 24px;
-        }
-
-        .add-title-header {
-          margin-bottom: 32px;
-          padding: 26px 30px;
-          border-radius: 28px;
-          border: 1px solid var(--border);
-          background: var(--panel-glass-hero);
-          backdrop-filter: blur(26px);
-          box-shadow: var(--shadow-soft);
-        }
-
-        .add-title-header h1 {
-          font-size: 36px;
-          color: var(--text-primary);
-          margin-bottom: 8px;
-        }
-
-        .add-title-header p {
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .type-selection h2 {
-          color: var(--text-primary);
-          font-size: 24px;
-          margin-bottom: 24px;
-          text-align: center;
-        }
-
-        .type-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 20px;
-        }
-
-        .type-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          padding: 32px;
-          border: 2px solid var(--border);
-          border-radius: 20px;
-          background: var(--panel-glass);
-          backdrop-filter: blur(24px);
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-
-        .type-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-        }
-
-        .type-card.selected {
-          border-color: var(--accent);
-          background: var(--panel-glass-active);
-        }
-
-        .type-icon {
-          width: 64px;
-          height: 64px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 20px;
-          background: rgba(128, 0, 32, 0.1);
-          color: var(--accent);
-        }
-
-        .type-card h3 {
-          color: var(--text-primary);
-          font-size: 20px;
-          margin: 0;
-        }
-
-        .type-card p {
-          color: var(--text-secondary);
-          text-align: center;
-          font-size: 14px;
-          margin: 0;
-        }
-
-        .add-title-form {
-          background: var(--panel-glass);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          padding: 32px;
-          backdrop-filter: blur(24px);
-          box-shadow: var(--shadow-soft);
-        }
-
-        .form-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 32px;
-        }
-
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .form-title {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .form-title h2 {
-          color: var(--text-primary);
-          font-size: 24px;
-          margin: 0;
-        }
-
-        .form-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 32px;
-        }
-
-        .form-column {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        .form-field {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .form-field label {
-          color: var(--text-primary);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .input {
-          padding: 12px 16px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          color: var(--text-primary);
-          font-size: 14px;
-          transition: all 0.2s ease;
-        }
-
-        .input:focus {
-          outline: none;
-          border-color: var(--accent);
-          background: rgba(255, 255, 255, 0.08);
-        }
-
-        .textarea {
-          resize: vertical;
-          font-family: inherit;
-        }
-
-        .price-input {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .price-input .input {
-          flex: 1;
-        }
-
-        .price-input > span {
-          color: var(--text-secondary);
-        }
-
-        .upload-section {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .upload-area {
-          position: relative;
-        }
-
-        .upload-label {
-          display: block;
-          cursor: pointer;
-        }
-
-        .upload-placeholder {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          padding: 32px;
-          border: 2px dashed var(--border);
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.02);
-          transition: all 0.3s ease;
-        }
-
-        .upload-placeholder:hover {
-          border-color: var(--accent);
-          background: rgba(128, 0, 32, 0.05);
-        }
-
-        .upload-placeholder span {
-          color: var(--text-primary);
-          font-size: 14px;
-        }
-
-        .upload-placeholder small {
-          color: var(--text-secondary);
-          font-size: 12px;
-        }
-
-        .file-preview {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 16px;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.05);
-        }
-
-        .file-preview img {
-          width: 60px;
-          height: 60px;
-          object-fit: cover;
-          border-radius: 8px;
-        }
-
-        .file-preview span {
-          flex: 1;
-          color: var(--text-primary);
-          font-size: 14px;
-        }
-
-        .remove-file {
-          width: 24px;
-          height: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(239, 68, 68, 0.1);
-          border: none;
-          border-radius: 4px;
-          color: #ef4444;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .remove-file:hover {
-          background: rgba(239, 68, 68, 0.2);
-        }
-
-        .upload-progress {
-          margin-top: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .progress-bar {
-          width: 100%;
-          height: 8px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: var(--accent);
-          border-radius: 4px;
-          transition: width 0.3s ease;
-        }
-
-        .upload-progress span {
-          color: var(--text-secondary);
-          font-size: 14px;
-          text-align: center;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 20px;
-          border: none;
-          border-radius: 12px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-primary {
-          background: var(--accent);
-          color: white;
-        }
-
-        .btn-primary:hover {
-          background: var(--accent-hover);
-        }
-
-        .btn-primary:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--text-primary);
-          border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.15);
-        }
-
-        @media (max-width: 768px) {
-          .type-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .form-grid {
-            grid-template-columns: 1fr;
-            gap: 24px;
-          }
-
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-
-          .form-header {
-            flex-direction: column;
-            gap: 16px;
-            align-items: stretch;
-          }
-
-          .header-left {
-            justify-content: space-between;
-          }
-        }
+        ${PAGE_STYLES}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spin-sm{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.20);border-top-color:#fff;animation:spin .65s linear infinite;flex-shrink:0}
+        .genre-chip{padding:5px 12px;border-radius:20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:rgba(255,255,255,.50);font-size:12px;font-family:inherit;cursor:pointer;transition:all .15s}
+        .genre-chip.selected{background:rgba(204,26,26,.15);border-color:rgba(204,26,26,.35);color:#ff8080}
+        .toggle-pill{padding:8px 20px;border-radius:20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:rgba(255,255,255,.40);font-size:13px;font-family:inherit;cursor:pointer;transition:all .15s}
+        .toggle-pill.active{background:rgba(204,26,26,.18);border-color:rgba(204,26,26,.35);color:#ff8080;font-weight:600}
+        .file-upload-zone{border:2px dashed rgba(255,255,255,.12);border-radius:12px;padding:20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .15s,background .15s}
+        .file-upload-zone:hover{border-color:rgba(204,26,26,.30);background:rgba(204,26,26,.04)}
+        .file-upload-zone.has-file{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.04)}
+        .file-upload-zone.disabled{opacity:.4;cursor:not-allowed}
       `}</style>
+    </div>
+  );
+}
+
+function FileUploadField({ label, accept, file, onFile, disabled }) {
+  const inputId = `fu-${Math.random().toString(36).slice(2)}`;
+  return (
+    <div className="fg">
+      <label className="lbl">{label}</label>
+      <label htmlFor={inputId} className={`file-upload-zone ${file ? 'has-file' : ''} ${disabled ? 'disabled' : ''}`}>
+        <div style={{width:36,height:36,borderRadius:10,background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          {file ? <Check size={18} style={{color:'#4ade80'}}/> : <Upload size={18} style={{color:'rgba(255,255,255,.30)'}}/>}
+        </div>
+        <div style={{flex:1}}>
+          {file ? (
+            <div style={{fontSize:13,color:'#4ade80',fontWeight:600}}>{file.name}</div>
+          ) : (
+            <div style={{fontSize:13,color:'rgba(255,255,255,.35)'}}>Click to upload or drag and drop</div>
+          )}
+        </div>
+        {file && (
+          <button type="button" onClick={e => { e.preventDefault(); onFile(null); }}
+            style={{background:'none',border:'none',color:'rgba(255,255,255,.30)',cursor:'pointer',padding:4}}>
+            <X size={14}/>
+          </button>
+        )}
+      </label>
+      <input id={inputId} type="file" accept={accept} disabled={disabled}
+        style={{display:'none'}} onChange={e => onFile(e.target.files?.[0] || null)}/>
     </div>
   );
 }

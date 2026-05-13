@@ -1,4 +1,6 @@
-const API_BASE_URL = 'https://camcineapi-production.up.railway.app/api/v1';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://camcine-api-604298774917.asia-south1.run.app/api/v1';
 
 class ApiError extends Error {
   constructor(message, status, data) {
@@ -45,7 +47,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         throw new ApiError(
@@ -70,7 +72,10 @@ class ApiClient {
   }
 
   async get(endpoint, params = {}) {
-    const queryString = new URLSearchParams(params).toString();
+    const cleanParams = Object.fromEntries(
+      Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== '')
+    );
+    const queryString = new URLSearchParams(cleanParams).toString();
     const url = queryString ? `${endpoint}?${queryString}` : endpoint;
     
     return this.request(url, {
@@ -88,6 +93,13 @@ class ApiClient {
   async put(endpoint, data = {}) {
     return this.request(endpoint, {
       method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async patch(endpoint, data = {}) {
+    return this.request(endpoint, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     });
   }

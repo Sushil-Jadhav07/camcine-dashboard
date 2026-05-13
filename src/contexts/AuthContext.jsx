@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { authService } from '../services/auth.js';
 import { userService } from '../services/users.js';
+import { normalizeUserFromApi } from '../services/roleMapper.js';
 
 const AuthContext = createContext();
 
@@ -16,12 +17,7 @@ const initialState = {
 const authReducer = (state, action) => {
   switch (action.type) {
     case 'LOGIN_START':
-      return {
-        ...state,
-        isLoading: true,
-        error: null
-      };
-    
+      return { ...state, isLoading: true, error: null };
     case 'LOGIN_SUCCESS':
       return {
         ...state,
@@ -32,58 +28,18 @@ const authReducer = (state, action) => {
         error: null,
         role: action.payload.user?.role || null
       };
-    
     case 'LOGIN_FAILURE':
-      return {
-        ...state,
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: action.payload,
-        role: null
-      };
-    
+      return { ...state, user: null, token: null, isAuthenticated: false, isLoading: false, error: action.payload, role: null };
     case 'LOGOUT':
-      return {
-        ...state,
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-        role: null
-      };
-    
+      return { ...state, user: null, token: null, isAuthenticated: false, isLoading: false, error: null, role: null };
     case 'SET_USER':
-      return {
-        ...state,
-        user: action.payload,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-        role: action.payload?.role || null
-      };
-    
+      return { ...state, user: action.payload, isAuthenticated: true, isLoading: false, error: null, role: action.payload?.role || null };
     case 'SET_LOADING':
-      return {
-        ...state,
-        isLoading: action.payload
-      };
-    
+      return { ...state, isLoading: action.payload };
     case 'SET_ERROR':
-      return {
-        ...state,
-        error: action.payload,
-        isLoading: false
-      };
-    
+      return { ...state, error: action.payload, isLoading: false };
     case 'CLEAR_ERROR':
-      return {
-        ...state,
-        error: null
-      };
-    
+      return { ...state, error: null };
     default:
       return state;
   }
@@ -95,17 +51,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       const token = authService.getToken();
-      
       if (token) {
         try {
           dispatch({ type: 'SET_LOADING', payload: true });
           const response = await authService.getCurrentUser();
-          
           if (response.success) {
-            dispatch({ 
-              type: 'SET_USER', 
-              payload: response.data 
-            });
+            const normalizedUser = normalizeUserFromApi(response.data);
+            dispatch({ type: 'SET_USER', payload: normalizedUser });
           } else {
             authService.logout();
             dispatch({ type: 'LOGOUT' });
@@ -118,7 +70,6 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
-
     initializeAuth();
   }, []);
 
@@ -126,19 +77,17 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: 'LOGIN_START' });
       const response = await authService.login(credentials);
-      
       if (response.success) {
-        dispatch({ 
-          type: 'LOGIN_SUCCESS', 
-          payload: response.data 
+        // Normalize the user role from API format (viewer -> user)
+        const normalizedUser = normalizeUserFromApi(response.data.user);
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { ...response.data, user: normalizedUser }
         });
-        return { success: true, user: response.data.user };
+        return { success: true };
       }
     } catch (error) {
-      dispatch({ 
-        type: 'LOGIN_FAILURE', 
-        payload: error.message || 'Login failed' 
-      });
+      dispatch({ type: 'LOGIN_FAILURE', payload: error.message || 'Login failed' });
       return { success: false, error: error.message };
     }
   };
@@ -147,16 +96,12 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: 'LOGIN_START' });
       const response = await authService.register(userData);
-      
       if (response.success) {
         dispatch({ type: 'SET_LOADING', payload: false });
-        return { success: true, message: response.message, data: response.data };
+        return { success: true, message: response.message };
       }
     } catch (error) {
-      dispatch({ 
-        type: 'SET_ERROR', 
-        payload: error.message || 'Registration failed' 
-      });
+      dispatch({ type: 'SET_ERROR', payload: error.message || 'Registration failed' });
       return { success: false, error: error.message };
     }
   };
@@ -170,37 +115,21 @@ export const AuthProvider = ({ children }) => {
     try {
       if (state.user?.id) {
         const response = await userService.updateUser(state.user.id, userData);
-        
         if (response.success) {
-          const updatedUser = response.data?.user || response.data;
-          dispatch({ 
-            type: 'SET_USER', 
-            payload: { ...state.user, ...updatedUser } 
-          });
-          return { success: true, user: { ...state.user, ...updatedUser } };
+          const normalizedUser = normalizeUserFromApi({ ...state.user, ...response.data });
+          dispatch({ type: 'SET_USER', payload: normalizedUser });
+          return { success: true };
         }
       }
     } catch (error) {
-      dispatch({ 
-        type: 'SET_ERROR', 
-        payload: error.message || 'Failed to update user' 
-      });
+      dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to update user' });
       return { success: false, error: error.message };
     }
   };
 
-  const clearError = () => {
-    dispatch({ type: 'CLEAR_ERROR' });
-  };
+  const clearError = () => dispatch({ type: 'CLEAR_ERROR' });
 
-  const value = {
-    ...state,
-    login,
-    register,
-    logout,
-    updateUser,
-    clearError
-  };
+  const value = { ...state, login, register, logout, updateUser, clearError };
 
   return (
     <AuthContext.Provider value={value}>
@@ -211,10 +140,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

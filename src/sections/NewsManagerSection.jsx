@@ -1,671 +1,187 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, Edit2, Eye, Globe, Plus, Radio, Trash2, Wifi } from 'lucide-react';
-import { UserRole } from '../constants/sections';
+import { AlertCircle, Calendar, Edit2, Eye, Newspaper, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { contentService } from '../services/content.js';
 
-const mockNews = [
-  { id: 1, title: 'New Series Launch Announcement', type: 'announcement', status: 'published', date: '2024-03-15', views: 12500, priority: 'high', content: 'We are excited to announce the launch of our new original series...' },
-  { id: 2, title: 'System Maintenance Tonight', type: 'maintenance', status: 'scheduled', date: '2024-03-14', views: 8900, priority: 'medium', content: 'Scheduled maintenance will occur tonight from 2AM to 4AM EST...' },
-  { id: 3, title: 'Feature Update: New Player Controls', type: 'update', status: 'published', date: '2024-03-13', views: 15600, priority: 'low', content: 'We\'ve rolled out new player controls based on user feedback...' },
-  { id: 4, title: 'Partnership with Major Studio', type: 'partnership', status: 'draft', date: '2024-03-12', views: 0, priority: 'high', content: 'Exciting partnership announcement coming soon...' },
-];
+const categories = ['All', 'Platform', 'Feature', 'Business', 'Tech', 'Editorial'];
+const catBadge = { Platform:'b-accent', Feature:'b-blue', Business:'b-yellow', Tech:'b-purple', Editorial:'b-green' };
+const emptyForm = { title: '', category: 'Platform', excerpt: '', content: '' };
 
-const newsTypes = ['All', 'announcement', 'maintenance', 'update', 'partnership', 'promotion'];
-const statusOptions = ['All', 'published', 'draft', 'scheduled', 'archived'];
+const getCategory = item => Array.isArray(item.genre) ? item.genre[0] : item.genre || 'Platform';
+const itemId = item => item.id || item._id;
 
 export function NewsManagerSection() {
-  const [news, setNews] = useState(mockNews);
-  const [filteredNews, setFilteredNews] = useState(mockNews);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingNews, setEditingNews] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    type: 'announcement',
-    status: 'draft',
-    priority: 'medium',
-    content: ''
+  const [news, setNews] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0 });
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('All');
+  const [visible, setVisible] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  useEffect(() => { fetchNews(); }, [q, cat]);
+
+  const fetchNews = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = { type: 'news', search: q, limit: 50, sort: 'newest' };
+      if (cat !== 'All') params.genre = cat;
+      const res = await contentService.getContent(params);
+      const data = res.data || {};
+      const list = data.content || data.items || data || [];
+      setNews(Array.isArray(list) ? list : []);
+      setPagination(data.pagination || { total: Array.isArray(list) ? list.length : 0 });
+    } catch (e) {
+      setError(e.message || 'Failed to fetch news');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const openAdd = () => { setEditing(null); setForm(emptyForm); setShowModal(true); };
+  const openEdit = item => {
+    setEditing(item);
+    setForm({
+      title: item.title || '',
+      category: getCategory(item),
+      excerpt: item.description || '',
+      content: item.content || '',
+    });
+    setShowModal(true);
+  };
+  const close = () => { setShowModal(false); setEditing(null); setForm(emptyForm); };
+
+  const payloadFromForm = () => ({
+    title: form.title.trim(),
+    type: 'news',
+    description: form.excerpt.trim() || form.content.trim(),
+    language: 'Hindi',
+    genre: [form.category],
+    release_year: new Date().getFullYear(),
+    rating: 'U',
+    is_free: true,
+    price_tvod: 0,
   });
 
-  useEffect(() => {
-    let filtered = news;
-
-    if (searchQuery) {
-      filtered = filtered.filter(item =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.content.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  const submit = async e => {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setError(null);
+      if (editing) await contentService.updateContent(itemId(editing), payloadFromForm());
+      else await contentService.createContent(payloadFromForm());
+      close();
+      fetchNews();
+    } catch (e2) {
+      setError(e2.message || 'Failed to save article');
+    } finally {
+      setSaving(false);
     }
+  };
 
-    if (selectedType !== 'All') {
-      filtered = filtered.filter(item => item.type === selectedType);
+  const archive = async id => {
+    if (!confirm('Archive this article?')) return;
+    try {
+      await contentService.archiveContent(id);
+      fetchNews();
+    } catch (e) {
+      setError(e.message || 'Failed to archive article');
     }
-
-    if (selectedStatus !== 'All') {
-      filtered = filtered.filter(item => item.status === selectedStatus);
-    }
-
-    setFilteredNews(filtered);
-  }, [searchQuery, selectedType, selectedStatus, news]);
-
-  const getStatusBadge = (status) => {
-    const colors = {
-      published: '#22c55e',
-      draft: '#f59e0b',
-      scheduled: '#3b82f6',
-      archived: '#6b7280'
-    };
-    return (
-      <span className="status-badge" style={{ color: colors[status] }}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
   };
 
-  const getPriorityBadge = (priority) => {
-    const colors = {
-      high: '#ef4444',
-      medium: '#f59e0b',
-      low: '#22c55e'
-    };
-    return (
-      <span className="priority-badge" style={{ borderColor: colors[priority], color: colors[priority] }}>
-        {priority.charAt(0).toUpperCase() + priority.slice(1)}
-      </span>
-    );
-  };
-
-  const handleCreateNews = () => {
-    const newItem = {
-      id: news.length + 1,
-      ...formData,
-      date: new Date().toISOString().split('T')[0],
-      views: 0
-    };
-    setNews([...news, newItem]);
-    setShowCreateModal(false);
-    setFormData({ title: '', type: 'announcement', status: 'draft', priority: 'medium', content: '' });
-  };
-
-  const handleEditNews = (item) => {
-    setEditingNews(item);
-    setFormData({
-      title: item.title,
-      type: item.type,
-      status: item.status,
-      priority: item.priority,
-      content: item.content
-    });
-  };
-
-  const handleUpdateNews = () => {
-    setNews(news.map(item => 
-      item.id === editingNews.id 
-        ? { ...item, ...formData }
-        : item
-    ));
-    setEditingNews(null);
-    setFormData({ title: '', type: 'announcement', status: 'draft', priority: 'medium', content: '' });
-  };
-
-  const handleDeleteNews = (id) => {
-    if (confirm('Are you sure you want to delete this news item?')) {
-      setNews(news.filter(item => item.id !== id));
+  const toggleStatus = async item => {
+    try {
+      await contentService.updateStatus(itemId(item), item.status === 'published' ? 'draft' : 'published');
+      fetchNews();
+    } catch (e) {
+      setError(e.message || 'Failed to update article status');
     }
   };
 
   return (
-    <div className="news-manager-section">
-      <div className="news-container">
-        {/* Header */}
-        <div className="news-header">
-          <div>
-            <h1>News Manager</h1>
-            <p>Create and manage platform announcements and updates.</p>
-          </div>
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-            <Plus size={16} />
-            Create News
-          </button>
-        </div>
-
-        {/* Filters */}
-        <div className="filters-bar">
-          <div className="search-box">
-            <input
-              type="text"
-              className="input"
-              placeholder="Search news..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          <div className="filter-group">
-            <select 
-              className="filter-select"
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-            >
-              {newsTypes.map(type => (
-                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <select 
-              className="filter-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              {statusOptions.map(status => (
-                <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
-              ))}
-            </select>
+    <div className={`page ${visible ? 'visible' : ''}`}>
+      <div className="page-inner">
+        <div className="ph">
+          <div className="ph-left"><h1>News Manager</h1><p>{pagination.total || news.length} articles from backend</p></div>
+          <div className="ph-right">
+            <button className="btn btn-secondary btn-sm" onClick={fetchNews} disabled={loading}><RefreshCw size={13} className={loading ? 'spin-icon' : ''}/>Refresh</button>
+            <button className="btn btn-primary" onClick={openAdd}><Plus size={14}/>Write Article</button>
           </div>
         </div>
 
-        {/* News List */}
-        <div className="news-list">
-          {filteredNews.map((item) => (
-            <div key={item.id} className="news-card">
-              <div className="news-content">
-                <div className="news-header-info">
-                  <h3>{item.title}</h3>
-                  <div className="news-meta">
-                    {getPriorityBadge(item.priority)}
-                    {getStatusBadge(item.status)}
-                  </div>
-                </div>
-                
-                <p className="news-excerpt">{item.content.substring(0, 150)}...</p>
-                
-                <div className="news-stats">
-                  <span className="stat">
-                    <Eye size={14} />
-                    {item.views.toLocaleString()} views
-                  </span>
-                  <span className="stat">
-                    <Globe size={14} />
-                    {item.type}
-                  </span>
-                  <span className="stat">
-                    <Radio size={14} />
-                    {item.date}
-                  </span>
-                </div>
-              </div>
-
-              <div className="news-actions">
-                <button className="btn-icon" onClick={() => handleEditNews(item)}>
-                  <Edit2 size={16} />
-                </button>
-                <button className="btn-icon" onClick={() => handleDeleteNews(item.id)}>
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {filteredNews.length === 0 && (
-            <div className="empty-state">
-              <AlertCircle size={48} />
-              <h3>No news found</h3>
-              <p>Try adjusting your search or filter criteria.</p>
-            </div>
-          )}
+        <div className="tabs">
+          {categories.map(c => <button key={c} className={`tab ${cat === c ? 'active' : ''}`} onClick={() => setCat(c)}>{c}</button>)}
         </div>
 
-        {/* Create/Edit Modal */}
-        {(showCreateModal || editingNews) && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <div className="modal-header">
-                <h2>{editingNews ? 'Edit News' : 'Create News'}</h2>
-                <button 
-                  className="btn-icon"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setEditingNews(null);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="modal-content">
-                <div className="form-grid">
-                  <div className="form-field">
-                    <label>Title</label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={formData.title}
-                      onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    />
-                  </div>
+        <div className="fbar">
+          <div className="fsearch" style={{flex:1}}><Search size={15} style={{color:'rgba(255,255,255,.30)',flexShrink:0}}/><input placeholder="Search articles..." value={q} onChange={e => setQ(e.target.value)}/></div>
+        </div>
 
-                  <div className="form-field">
-                    <label>Type</label>
-                    <select
-                      className="input"
-                      value={formData.type}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
-                    >
-                      {newsTypes.slice(1).map(type => (
-                        <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
-                      ))}
-                    </select>
-                  </div>
+        {error && <div className="api-error"><AlertCircle size={15}/>{error}</div>}
 
-                  <div className="form-field">
-                    <label>Status</label>
-                    <select
-                      className="input"
-                      value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value})}
-                    >
-                      {statusOptions.slice(1).map(status => (
-                        <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
-                      ))}
-                    </select>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {loading ? (
+            <div className="loader"><span className="spin"/>Loading articles...</div>
+          ) : news.length ? news.map(item => {
+            const category = getCategory(item);
+            return (
+              <div key={itemId(item)} className="news-card">
+                <div className="news-card-body">
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                    <span className={`badge ${catBadge[category] || 'b-gray'}`} style={{fontSize:10}}>{category}</span>
+                    <span className={`badge ${item.status === 'published' ? 'b-green' : 'b-yellow'}`} style={{fontSize:10}}>{item.status || 'draft'}</span>
+                    <span style={{fontSize:11,color:'rgba(255,255,255,.30)',display:'flex',alignItems:'center',gap:4}}><Calendar size={10}/>{item.release_year || item.created_at || 'N/A'}</span>
                   </div>
-
-                  <div className="form-field">
-                    <label>Priority</label>
-                    <select
-                      className="input"
-                      value={formData.priority}
-                      onChange={(e) => setFormData({...formData, priority: e.target.value})}
-                    >
-                      <option value="high">High</option>
-                      <option value="medium">Medium</option>
-                      <option value="low">Low</option>
-                    </select>
-                  </div>
-
-                  <div className="form-field full-width">
-                    <label>Content</label>
-                    <textarea
-                      className="input textarea"
-                      rows={4}
-                      value={formData.content}
-                      onChange={(e) => setFormData({...formData, content: e.target.value})}
-                    />
-                  </div>
+                  <div style={{fontSize:15,fontWeight:700,color:'#f5f5f5',marginBottom:5,lineHeight:1.35}}>{item.title}</div>
+                  <div style={{fontSize:13,color:'rgba(255,255,255,.45)',lineHeight:1.6}}>{item.description || 'No excerpt added.'}</div>
                 </div>
-
-                <div className="modal-actions">
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setEditingNews(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    className="btn btn-primary"
-                    onClick={editingNews ? handleUpdateNews : handleCreateNews}
-                  >
-                    {editingNews ? 'Update' : 'Create'}
-                  </button>
+                <div style={{display:'flex',flexDirection:'column',gap:6,flexShrink:0}}>
+                  <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(item)} title="Edit"><Edit2 size={13}/></button>
+                  <button className="btn btn-ghost btn-icon btn-sm" title="Toggle status" onClick={() => toggleStatus(item)}><Eye size={13}/></button>
+                  <button className="btn btn-danger btn-icon btn-sm" onClick={() => archive(itemId(item))} title="Archive"><Trash2 size={13}/></button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            );
+          }) : <div className="empty"><Newspaper size={32}/><p>No articles found</p></div>}
+        </div>
       </div>
 
-      <style>{`
-        .news-manager-section {
-          min-height: 100vh;
-          padding: 28px 0 56px;
-          background: var(--bg-primary);
-        }
+      {showModal && (
+        <div className="modal-bg" onClick={e => e.target === e.currentTarget && close()}>
+          <div className="modal-box" style={{maxWidth:640}}>
+            <div className="modal-hdr"><h3>{editing ? 'Edit Article' : 'Write Article'}</h3><button className="modal-close" onClick={close}><X size={15}/></button></div>
+            <form onSubmit={submit}>
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div className="fg"><label className="lbl">Title *</label><input className="inp" value={form.title} onChange={e => setF('title', e.target.value)} required placeholder="Article headline"/></div>
+                <div className="fg"><label className="lbl">Category</label><select className="inp fselect" value={form.category} onChange={e => setF('category', e.target.value)}>{categories.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}</select></div>
+                <div className="fg"><label className="lbl">Excerpt</label><textarea className="inp" rows={2} value={form.excerpt} onChange={e => setF('excerpt', e.target.value)} placeholder="Short summary..." style={{resize:'vertical'}}/></div>
+                <div className="fg"><label className="lbl">Content</label><textarea className="inp" rows={6} value={form.content} onChange={e => setF('content', e.target.value)} placeholder="Full article content..." style={{resize:'vertical'}}/></div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={close}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : editing ? 'Save Changes' : 'Publish Draft'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-        .news-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 24px;
-        }
-
-        .news-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 26px;
-          padding: 26px 30px;
-          border-radius: 28px;
-          border: 1px solid var(--border);
-          background: var(--panel-glass-hero);
-          backdrop-filter: blur(26px);
-          box-shadow: var(--shadow-soft);
-        }
-
-        .news-header h1 {
-          font-size: 36px;
-          color: var(--text-primary);
-          margin-bottom: 8px;
-        }
-
-        .news-header p {
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .filters-bar {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 30px;
-          flex-wrap: wrap;
-          padding: 18px;
-          border-radius: 24px;
-          border: 1px solid var(--border);
-          background: var(--panel-glass-soft);
-          backdrop-filter: blur(24px);
-        }
-
-        .search-box {
-          flex: 1;
-          min-width: 280px;
-        }
-
-        .filter-group {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .filter-select {
-          padding: 10px 16px;
-          background: var(--bg-secondary);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          color: var(--text-primary);
-          font-size: 14px;
-          cursor: pointer;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .filter-select:focus {
-          border-color: var(--accent);
-        }
-
-        .news-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .news-card {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          padding: 20px;
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          background: var(--panel-glass);
-          backdrop-filter: blur(24px);
-          box-shadow: var(--shadow-soft);
-          transition: all 0.3s ease;
-        }
-
-        .news-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-        }
-
-        .news-content {
-          flex: 1;
-        }
-
-        .news-header-info {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-
-        .news-header-info h3 {
-          color: var(--text-primary);
-          font-size: 18px;
-          margin-bottom: 8px;
-        }
-
-        .news-meta {
-          display: flex;
-          gap: 8px;
-        }
-
-        .status-badge, .priority-badge {
-          padding: 4px 8px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-weight: 600;
-          white-space: nowrap;
-        }
-
-        .priority-badge {
-          border: 1px solid;
-          background: transparent;
-        }
-
-        .news-excerpt {
-          color: var(--text-secondary);
-          line-height: 1.6;
-          margin-bottom: 12px;
-        }
-
-        .news-stats {
-          display: flex;
-          gap: 16px;
-        }
-
-        .stat {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .news-actions {
-          display: flex;
-          gap: 8px;
-          margin-left: 16px;
-        }
-
-        .btn-icon {
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          color: var(--text-secondary);
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-icon:hover {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--text-primary);
-        }
-
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 80px 20px;
-          color: var(--text-secondary);
-          text-align: center;
-        }
-
-        .empty-state h3 {
-          color: var(--text-primary);
-          margin: 16px 0 8px;
-        }
-
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(7, 2, 3, 0.7);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal {
-          background: rgba(19, 23, 30, 0.98);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          padding: 32px;
-          max-width: 600px;
-          width: 90%;
-          max-height: 90vh;
-          overflow-y: auto;
-          box-shadow: var(--shadow-soft);
-        }
-
-        .modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 24px;
-        }
-
-        .modal-header h2 {
-          color: var(--text-primary);
-          font-size: 24px;
-        }
-
-        .form-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
-          margin-bottom: 24px;
-        }
-
-        .form-field {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .form-field.full-width {
-          grid-column: span 2;
-        }
-
-        .form-field label {
-          color: var(--text-primary);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .input {
-          padding: 12px 16px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          color: var(--text-primary);
-          font-size: 14px;
-          transition: all 0.2s ease;
-        }
-
-        .input:focus {
-          outline: none;
-          border-color: var(--accent);
-          background: rgba(255, 255, 255, 0.08);
-        }
-
-        .textarea {
-          resize: vertical;
-          font-family: inherit;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 20px;
-          border: none;
-          border-radius: 12px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-primary {
-          background: var(--accent);
-          color: white;
-        }
-
-        .btn-primary:hover {
-          background: var(--accent-hover);
-        }
-
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--text-primary);
-          border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.15);
-        }
-
-        @media (max-width: 768px) {
-          .news-header {
-            flex-direction: column;
-            gap: 16px;
-            align-items: stretch;
-          }
-
-          .filters-bar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .search-box {
-            min-width: auto;
-          }
-
-          .news-card {
-            flex-direction: column;
-          }
-
-          .news-actions {
-            margin-left: 0;
-            margin-top: 12px;
-            justify-content: flex-end;
-          }
-
-          .form-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .form-field.full-width {
-            grid-column: span 1;
-          }
-        }
+      <style>{`${PAGE_STYLES}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spin-icon{animation:spin .75s linear infinite}
+        .spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.12);border-top-color:rgba(255,255,255,.55);display:inline-block;animation:spin .75s linear infinite}
+        .loader{display:flex;align-items:center;justify-content:center;gap:10px;padding:30px;color:rgba(255,255,255,.35)}
+        .api-error{display:flex;align-items:center;gap:8px;padding:11px 14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.18);border-radius:10px;font-size:13px;color:#fca5a5;margin-bottom:12px}
+        .news-card{display:flex;align-items:flex-start;gap:16px;padding:18px 20px;background:#141414;border:1px solid rgba(255,255,255,.07);border-radius:16px;transition:border-color .15s,background .15s}
+        .news-card:hover{background:#1a1a1a;border-color:rgba(255,255,255,.12)}
+        .news-card-body{flex:1;min-width:0}
       `}</style>
     </div>
   );

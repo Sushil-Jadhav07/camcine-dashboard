@@ -1,248 +1,161 @@
-import { useEffect, useState } from 'react';
-import {
-  Activity,
-  BarChart3,
-  Clock3,
-  Download,
-  FileText,
-  Search,
-  Users,
-} from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useState, useEffect } from 'react';
+import { TrendingUp, TrendingDown, Users, Film, DollarSign, Eye, Download, Calendar } from 'lucide-react';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
 
-const historyData = [
-  { month: 'Jan', value: 20 },
-  { month: 'Feb', value: 31 },
-  { month: 'Mar', value: 24 },
-  { month: 'Apr', value: 16 },
-  { month: 'May', value: 29 },
-  { month: 'Jun', value: 23 },
-  { month: 'Jul', value: 34 },
-  { month: 'Aug', value: 36 },
-  { month: 'Sep', value: 29 },
-  { month: 'Oct', value: 27 },
-  { month: 'Nov', value: 32 },
-  { month: 'Dec', value: 35 },
+const revenueData = [
+  {month:'Jan',revenue:72000,users:3200},{month:'Feb',revenue:78000,users:3600},{month:'Mar',revenue:89400,users:4100},
+  {month:'Apr',revenue:92000,users:4400},{month:'May',revenue:98000,users:4800},{month:'Jun',revenue:105000,users:5200},
 ];
+const topContent = [
+  {title:'The Midnight Archive', views:125000, revenue:4500, type:'Film'},
+  {title:'Cyber Chronicles S2',  views:98000,  revenue:3200, type:'Series'},
+  {title:'Urban Legends Doc',    views:87000,  revenue:2800, type:'Film'},
+  {title:'Comedy Special Live',  views:76000,  revenue:2100, type:'Special'},
+  {title:'Science: Space',       views:65000,  revenue:1900, type:'Educational'},
+];
+const deviceData = [{name:'Mobile',value:45},{name:'Desktop',value:32},{name:'TV',value:18},{name:'Tablet',value:5}];
+const COLORS = ['#cc1a1a','#ff6b6b','#fbbf24','#60a5fa'];
 
-const topPages = [
-  ['homepage', 81.7],
-  ['blog/seo-tips', 8.1],
-  ['resources/ebook', 4.2],
-  ['pricing', 2.5],
-  ['blog/content-marketing', 2.9],
-  ['blog/social-media-strategy', 2.4],
-  ['features', 2.1],
-  ['case-studies', 2.0],
-  ['contact', 1.8],
-  ['about', 1.5],
-];
-
-const tableRows = [
-  ['/resources/guide', 387, 215, '28.9%', 81],
-  ['/blog/content-marketing-tips', 720, 180, '32.5%', 78],
-  ['/blog/seo-best-practices', 846, 147, '38.2%', 72],
-  ['/case-studies/ecommerce', 580, 160, '35%', 70],
-  ['/features/analytics', 512, 113, '41.7%', 68],
-];
-
-const metricCards = [
-  { label: 'Total Pages Viewed', value: '12.4K', delta: '+0.9%', icon: Users },
-  { label: 'Avg. Time on Page', value: '2:45 min', delta: '+0.8%', icon: Clock3 },
-  { label: 'Top Content Type', value: '12.5%', delta: '+0.5%', icon: FileText },
-  { label: 'Scroll Depth', value: '12.5%', delta: '+0.6%', icon: Activity },
-];
+const CustomTooltip = ({active,payload,label}) => active&&payload?.length ? (
+  <div style={{background:'#1a1a1a',border:'1px solid rgba(255,255,255,.10)',borderRadius:10,padding:'10px 14px',fontSize:12}}>
+    <div style={{color:'rgba(255,255,255,.45)',marginBottom:4,textTransform:'uppercase',letterSpacing:'.06em',fontSize:10}}>{label}</div>
+    {payload.map((p,i)=><div key={i} style={{color:'#f5f5f5',fontWeight:700}}>{p.name==='revenue'?'$':''}{p.value?.toLocaleString()}{p.name==='users'?' users':''}</div>)}
+  </div>
+) : null;
 
 export function AnalyticsSection() {
-  const [selectedPeriod, setSelectedPeriod] = useState('30d');
-  const [sortMetric, setSortMetric] = useState('scrollDepth');
-  const [direction, setDirection] = useState('desc');
-  const [isVisible, setIsVisible] = useState(false);
+  const [period, setPeriod] = useState('30d');
+  const [visible, setVisible] = useState(false);
+  useEffect(()=>{ setTimeout(()=>setVisible(true),80); },[]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 120);
-    return () => clearTimeout(timer);
-  }, []);
+  const stats = [
+    {label:'Total Views',    value:'1.25M', change:'+15.2%', trend:'up',   icon:Eye},
+    {label:'Active Users',   value:'45.2K', change:'+8.7%',  trend:'up',   icon:Users},
+    {label:'Revenue',        value:'$89.4K',change:'+23.1%', trend:'up',   icon:DollarSign},
+    {label:'Avg Watch Time', value:'42 min',change:'+5.4%',  trend:'up',   icon:Film},
+  ];
 
   return (
-    <section className={`dashboard-shell ${isVisible ? 'visible' : ''}`}>
-      <div className="shell-container">
-        <div className="dashboard-topbar">
-          <div className="topbar-title">
-            <div className="topbar-icon">
-              <BarChart3 size={18} />
-            </div>
-            <div>
-              <h1>Analytics</h1>
-              <p>Monthly trends for user engagement and page behavior.</p>
-            </div>
-          </div>
-          <div className="topbar-actions">
-            <div className="topbar-search">
-              <Search size={16} />
-              <input type="text" placeholder="Search Anything" />
-            </div>
-            <select className="select" value={selectedPeriod} onChange={(event) => setSelectedPeriod(event.target.value)}>
-              <option value="7d">7 days</option>
-              <option value="30d">30 days</option>
-              <option value="90d">90 days</option>
-              <option value="1y">1 year</option>
+    <div className={`page ${visible?'visible':''}`}>
+      <div className="page-inner">
+        <div className="ph">
+          <div className="ph-left"><h1>Analytics</h1><p>Platform performance and audience insights</p></div>
+          <div className="ph-right">
+            <select className="fselect" value={period} onChange={e=>setPeriod(e.target.value)}>
+              {[['7d','Last 7 days'],['30d','Last 30 days'],['90d','Last 90 days'],['1y','This year']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
             </select>
-            <div className="topbar-user">
-              <div className="user-badge">A</div>
-              <div>
-                <strong style={{ display: 'block', fontSize: 13 }}>admin</strong>
-                <span className="subtle">admin@gmail.com</span>
-              </div>
-            </div>
+            <button className="btn btn-secondary btn-sm"><Download size={13}/> Export</button>
           </div>
         </div>
 
-        <div className="metric-grid">
-          {metricCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <article key={card.label} className="metric-card">
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <span className="metric-label">{card.label}</span>
-                    <strong className="metric-value">{card.value}</strong>
-                    <div className="metric-meta" style={{ color: 'var(--danger)', marginTop: 10 }}>{card.delta}</div>
-                  </div>
-                  <div className="topbar-icon" style={{ width: 32, height: 32, borderRadius: 10 }}>
-                    <Icon size={14} />
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+        <div className="stats-row">
+          {stats.map(({label,value,change,trend,icon:Icon},i)=>(
+            <div key={i} className="sc">
+              <div className="sc-icon"><Icon size={20}/></div>
+              <div>
+                <div className="sc-label">{label}</div>
+                <div className="sc-value">{value}</div>
+                <div className={`sc-change ${trend}`}>{trend==='up'?<TrendingUp size={12}/>:<TrendingDown size={12}/>}<span>{change}</span></div>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="analytics-layout">
-          <div className="chart-card">
-            <div className="section-heading">
-              <div>
-                <h3>Average Time History</h3>
-                <p>Monthly trends of user engagement duration with bounce rate comparison.</p>
-              </div>
+        {/* Charts row */}
+        <div style={{display:'grid',gridTemplateColumns:'3fr 2fr',gap:18}}>
+          <div className="card">
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:20}}>
+              <div><div className="card-title">Revenue Trend</div><div className="card-sub">Monthly revenue over time</div></div>
             </div>
-            <div style={{ height: 320 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={historyData}>
-                  <defs>
-                    <linearGradient id="analyticsAreaFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.56} />
-                      <stop offset="95%" stopColor="var(--accent-strong)" stopOpacity={0.04} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="var(--line)" vertical={false} />
-                  <XAxis dataKey="month" stroke="var(--text-muted)" tickLine={false} axisLine={false} />
-                  <YAxis hide />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '14px',
-                      border: '1px solid var(--line)',
-                      background: 'var(--panel-strong)',
-                      color: 'var(--text-primary)',
-                    }}
-                  />
-                  <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={3} fill="url(#analyticsAreaFill)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="toolbar" style={{ marginTop: 12 }}>
-              <div>
-                <strong style={{ fontSize: 13 }}>Avg. Time on Page</strong>
-                <div className="subtle">2.7 min (+5% vs last month)</div>
-              </div>
-              <div className="inline-meta" style={{ color: 'var(--accent)' }}>
-                <span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--accent)', display: 'inline-block' }} />
-                Avg. Time (min)
-              </div>
-            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={revenueData} margin={{left:-20,right:5,top:5,bottom:0}}>
+                <defs>
+                  <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#cc1a1a" stopOpacity={.22}/>
+                    <stop offset="95%" stopColor="#cc1a1a" stopOpacity={.01}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)"/>
+                <XAxis dataKey="month" tick={{fill:'rgba(255,255,255,.30)',fontSize:11}} axisLine={false} tickLine={false}/>
+                <YAxis tick={{fill:'rgba(255,255,255,.30)',fontSize:11}} axisLine={false} tickLine={false}/>
+                <Tooltip content={<CustomTooltip/>}/>
+                <Area type="monotone" dataKey="revenue" name="revenue" stroke="#cc1a1a" strokeWidth={2.5} fill="url(#rg)" dot={false} activeDot={{r:5,fill:'#cc1a1a',stroke:'#fff',strokeWidth:2}}/>
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
 
-          <div className="chart-card">
-            <div className="section-heading">
-              <div>
-                <h3>Top 10 pages by sessions</h3>
-                <p>Fast scan of the highest traffic destinations.</p>
-              </div>
+          <div className="card">
+            <div style={{marginBottom:20}}><div className="card-title">Device Breakdown</div><div className="card-sub">Views by device type</div></div>
+            <div style={{display:'flex',justifyContent:'center'}}>
+              <PieChart width={180} height={180}>
+                <Pie data={deviceData} cx={90} cy={90} innerRadius={52} outerRadius={82} paddingAngle={3} dataKey="value">
+                  {deviceData.map((e,i)=><Cell key={i} fill={COLORS[i]} stroke="transparent"/>)}
+                </Pie>
+                <Tooltip formatter={v=>`${v}%`} contentStyle={{background:'#1a1a1a',border:'1px solid rgba(255,255,255,.10)',borderRadius:10,fontSize:12}}/>
+              </PieChart>
             </div>
-            <div className="progress-list">
-              {topPages.map(([label, value]) => (
-                <div key={label} className="progress-item">
-                  <div className="progress-row">
-                    <span>{label}</span>
-                    <span>{value}K</span>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+              {deviceData.map((d,i)=>(
+                <div key={d.name} style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{width:10,height:10,borderRadius:3,background:COLORS[i]}}/>
+                    <span style={{fontSize:12.5,color:'rgba(255,255,255,.55)'}}>{d.name}</span>
                   </div>
-                  <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${Math.min(value, 100)}%` }} />
-                  </div>
+                  <span style={{fontSize:13,fontWeight:700,color:'#f5f5f5'}}>{d.value}%</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="surface-panel">
-          <div className="section-heading">
-            <div>
-              <h3>Top Content by Engagement</h3>
-              <p>Key pages sorted by sessions. Hover to compare engagement metrics.</p>
-            </div>
-            <button className="btn btn-primary">
-              <Download size={16} />
-              Export
-            </button>
-          </div>
+        {/* User growth chart */}
+        <div className="card">
+          <div style={{marginBottom:20}}><div className="card-title">User Growth</div><div className="card-sub">Monthly active users</div></div>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={revenueData} margin={{left:-20,right:5,top:5,bottom:0}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)"/>
+              <XAxis dataKey="month" tick={{fill:'rgba(255,255,255,.30)',fontSize:11}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fill:'rgba(255,255,255,.30)',fontSize:11}} axisLine={false} tickLine={false}/>
+              <Tooltip content={<CustomTooltip/>}/>
+              <Bar dataKey="users" name="users" fill="rgba(204,26,26,.50)" radius={[5,5,0,0]} activeBar={{fill:'#cc1a1a'}}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
-          <div className="toolbar" style={{ marginBottom: 16 }}>
-            <div className="toolbar-group">
-              <span className="metric-label">Sort by</span>
-              <select className="select" value={sortMetric} onChange={(event) => setSortMetric(event.target.value)}>
-                <option value="scrollDepth">Scroll Depth</option>
-                <option value="sessions">Sessions</option>
-                <option value="averageTime">Average Time</option>
-                <option value="bounceRate">Bounce Rate</option>
-              </select>
-            </div>
-            <div className="toolbar-group">
-              <button className={`btn ${direction === 'asc' ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setDirection('asc')}>Asc</button>
-              <button className={`btn ${direction === 'desc' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setDirection('desc')}>Desc</button>
-            </div>
-          </div>
-
-          <div className="table-shell">
-            <table className="data-table table-striped">
-              <thead>
-                <tr>
-                  <th>Page URL</th>
-                  <th>Sessions</th>
-                  <th>Average Time</th>
-                  <th>Bounce Rate</th>
-                  <th>Scroll Depth</th>
-                </tr>
-              </thead>
+        {/* Top content */}
+        <div className="card">
+          <div style={{marginBottom:16}}><div className="card-title">Top Performing Content</div><div className="card-sub">Ranked by total views</div></div>
+          <div className="tbl-wrap" style={{border:'none',borderRadius:0}}>
+            <table className="tbl">
+              <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Views</th><th>Revenue</th><th>Share</th></tr></thead>
               <tbody>
-                {tableRows.map(([url, sessions, averageTime, bounceRate, scrollDepth]) => (
-                  <tr key={url}>
-                    <td>{url}</td>
-                    <td>{sessions}</td>
-                    <td>{averageTime}</td>
-                    <td>{bounceRate}</td>
-                    <td>
-                      <div className="progress-track">
-                        <div className="progress-fill" style={{ width: `${scrollDepth}%` }} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {topContent.map((c,i)=>{
+                  const maxV = topContent[0].views;
+                  return (
+                    <tr key={i}>
+                      <td style={{color:'rgba(255,255,255,.25)',fontWeight:700,width:32}}>{i+1}</td>
+                      <td style={{fontWeight:600}}>{c.title}</td>
+                      <td><span className="badge b-gray" style={{fontSize:11}}>{c.type}</span></td>
+                      <td style={{fontWeight:700}}>{(c.views/1000).toFixed(0)}K</td>
+                      <td style={{color:'#4ade80',fontWeight:700}}>${(c.revenue/1000).toFixed(1)}K</td>
+                      <td style={{minWidth:100}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <div style={{flex:1,height:5,background:'rgba(255,255,255,.08)',borderRadius:999,overflow:'hidden'}}>
+                            <div style={{width:`${(c.views/maxV)*100}%`,height:'100%',background:'#cc1a1a',borderRadius:999}}/>
+                          </div>
+                          <span style={{fontSize:11,color:'rgba(255,255,255,.35)',minWidth:30}}>{Math.round((c.views/maxV)*100)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       </div>
-    </section>
+      <style>{`${PAGE_STYLES} @media(max-width:900px){.chart-row{grid-template-columns:1fr!important}}`}</style>
+    </div>
   );
 }

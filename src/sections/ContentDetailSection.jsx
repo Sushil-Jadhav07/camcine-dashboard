@@ -1,796 +1,239 @@
-import { useState, useEffect } from 'react';
-import {
-  Play,
-  Pause,
-  Volume2,
-  Maximize,
-  Settings,
-  Share2,
-  Heart,
-  Bookmark,
-  Download,
-  Star,
-  Calendar,
-  Clock,
-  Eye,
-  Film,
-  Music,
-  Tv,
-  Tag
-} from 'lucide-react';
-import { UserRole } from '../constants/sections';
+import { useEffect, useState } from 'react';
+import { AlertCircle, ArrowLeft, Calendar, Clock, Eye, Film, Music, RefreshCw, Tag, Tv, Users } from 'lucide-react';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { contentService } from '../services/content.js';
 
-const mockContent = {
-  id: 1,
-  title: 'The Midnight Archive',
-  type: 'film',
-  genre: 'Thriller',
-  duration: '2:45:00',
-  rating: 4.8,
-  views: 125000,
-  likes: 8900,
-  description: 'A gripping thriller that keeps you on the edge of your seat from start to finish. When a mysterious archive of midnight recordings is discovered, a team of investigators must unravel the dark secrets hidden within.',
-  thumbnail: 'https://via.placeholder.com/800x450',
-  videoUrl: 'https://example.com/video.mp4',
-  releaseDate: '2024-03-15',
-  director: 'Sarah Chen',
-  cast: ['Alex Johnson', 'Emma Wilson', 'Michael Brown', 'Lisa Davis'],
-  tags: ['thriller', 'mystery', 'suspense', 'dark'],
-  relatedContent: [
-    { id: 2, title: 'Cyber Chronicles S2', type: 'series', thumbnail: 'https://via.placeholder.com/300x200' },
-    { id: 3, title: 'Urban Legends Documentary', type: 'film', thumbnail: 'https://via.placeholder.com/300x200' },
-    { id: 4, title: 'Comedy Special: Live Tonight', type: 'special', thumbnail: 'https://via.placeholder.com/300x200' },
-  ]
+const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
+const normalizeContent = data => data?.content || data?.item || data || null;
+const normalizeList = data => data?.cast || data?.episodes || data?.items || data || [];
+const typeIcon = {
+  movie: Film,
+  short_film: Film,
+  news: Film,
+  show: Tv,
+  song: Music,
 };
 
-export function ContentDetailSection({ contentId, onNavigate }) {
-  const [content, setContent] = useState(mockContent);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [volume, setVolume] = useState(75);
-  const [currentTime, setCurrentTime] = useState('00:00');
-  const [duration, setDuration] = useState('02:45:00');
-  const [isVisible, setIsVisible] = useState(false);
+function durationLabel(seconds) {
+  if (!seconds) return 'N/A';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
 
+function statValue(value) {
+  const n = Number(value || 0);
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toString();
+}
+
+export function ContentDetailSection({ onNavigate, contentId }) {
+  const [content, setContent] = useState(null);
+  const [cast, setCast] = useState([]);
+  const [episodes, setEpisodes] = useState([]);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
   useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+    if (contentId) fetchDetail();
+  }, [contentId]);
 
-  const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
-  };
+  const fetchDetail = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-  };
+      const detail = await contentService.getContentById(contentId);
+      setContent(normalizeContent(detail.data));
 
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
-  };
+      const [castResult, episodeResult] = await Promise.allSettled([
+        contentService.getCast(contentId),
+        contentService.getEpisodes(contentId),
+      ]);
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: content.title,
-        text: content.description,
-        url: window.location.href
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
+      setCast(castResult.status === 'fulfilled' ? normalizeList(castResult.value.data) : []);
+      setEpisodes(episodeResult.status === 'fulfilled' ? normalizeList(episodeResult.value.data) : []);
+    } catch (e) {
+      setError(e.message || 'Failed to load content details');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDownload = () => {
-    // Simulate download
-    const link = document.createElement('a');
-    link.href = content.videoUrl;
-    link.download = `${content.title}.mp4`;
-    link.click();
-  };
-
-  const getTypeIcon = (type) => {
-    switch (type) {
-      case 'film': return <Film size={16} />;
-      case 'series': return <Tv size={16} />;
-      case 'music': return <Music size={16} />;
-      case 'special': return <Star size={16} />;
-      default: return <Film size={16} />;
-    }
-  };
+  const back = () => onNavigate && onNavigate('content');
+  const genres = asArray(content?.genre);
+  const Icon = typeIcon[content?.type] || Film;
+  const poster = content?.poster_url || content?.thumbnail_url || content?.image_url;
+  const stats = content?.stats || content?.analytics || {};
+  const tabs = content?.type === 'show' ? ['overview', 'cast', 'episodes'] : ['overview', 'cast'];
 
   return (
-    <div className={`content-detail-section ${isVisible ? 'visible' : ''}`}>
-      <div className="content-detail-container">
-        {/* Video Player */}
-        <div className="video-player">
-          <div className="video-container">
-            <img src={content.thumbnail} alt={content.title} className="video-thumbnail" />
-            
-            <div className="video-overlay">
-              <button className="play-button-large" onClick={handlePlayPause}>
-                {isPlaying ? <Pause size={48} /> : <Play size={48} />}
-              </button>
-            </div>
-
-            {/* Video Controls */}
-            <div className="video-controls">
-              <div className="controls-left">
-                <button className="control-btn" onClick={handlePlayPause}>
-                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-                </button>
-                
-                <div className="time-display">
-                  <span>{currentTime}</span>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: '35%' }} />
-                  </div>
-                  <span>{duration}</span>
-                </div>
-              </div>
-
-              <div className="controls-right">
-                <div className="volume-control">
-                  <Volume2 size={20} />
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={volume}
-                    onChange={(e) => setVolume(e.target.value)}
-                    className="volume-slider"
-                  />
-                </div>
-
-                <button className="control-btn" onClick={() => setShowSettings(!showSettings)}>
-                  <Settings size={20} />
-                </button>
-                
-                <button className="control-btn">
-                  <Maximize size={20} />
-                </button>
-              </div>
-            </div>
+    <div className={`page ${visible ? 'visible' : ''}`}>
+      <div className="page-inner">
+        <div className="ph">
+          <div className="ph-left">
+            <button className="btn btn-secondary btn-sm" onClick={back}><ArrowLeft size={14}/>Content Library</button>
+            <h1 style={{marginTop:14}}>{content?.title || 'Content Details'}</h1>
+            <p>{content?.description || 'View title metadata, cast, and episodes from the backend API.'}</p>
+          </div>
+          <div className="ph-right">
+            <button className="btn btn-secondary btn-sm" onClick={fetchDetail} disabled={loading || !contentId}>
+              <RefreshCw size={13} className={loading ? 'spin-icon' : ''}/>Refresh
+            </button>
           </div>
         </div>
 
-        {/* Content Info */}
-        <div className="content-info">
-          <div className="info-header">
-            <div className="title-section">
-              <h1>{content.title}</h1>
-              <div className="content-meta">
-                <div className="meta-item">
-                  {getTypeIcon(content.type)}
-                  <span>{content.type}</span>
+        {!contentId && (
+          <div className="empty"><AlertCircle size={36}/><p>Select a title from Content Library first.</p></div>
+        )}
+
+        {error && (
+          <div className="api-error">
+            <AlertCircle size={16}/>{error}
+            <button className="btn btn-secondary btn-sm" onClick={fetchDetail}>Retry</button>
+          </div>
+        )}
+
+        {loading && !content ? (
+          <div className="loader"><span className="spin"/>Loading content details...</div>
+        ) : content && (
+          <>
+            <div className="detail-hero">
+              <div className="poster">
+                {poster ? <img src={poster} alt={content.title}/> : <Icon size={54}/>}
+              </div>
+              <div className="detail-main">
+                <div className="meta-row">
+                  <span className="badge b-accent"><Icon size={12}/>{content.type}</span>
+                  <span className={`badge ${content.status === 'published' ? 'b-green' : 'b-yellow'}`}>{content.status || 'draft'}</span>
+                  {content.rating && <span className="badge b-gray">{content.rating}</span>}
                 </div>
-                <div className="meta-item">
-                  <Tag size={16} />
-                  <span>{content.genre}</span>
-                </div>
-                <div className="meta-item">
-                  <Clock size={16} />
-                  <span>{content.duration}</span>
-                </div>
-                <div className="meta-item">
-                  <Calendar size={16} />
-                  <span>{content.releaseDate}</span>
+                <h2>{content.title}</h2>
+                <p>{content.description || 'No description added.'}</p>
+                <div className="quick-grid">
+                  <Info icon={Calendar} label="Release" value={content.release_year || content.release_date || 'N/A'} />
+                  <Info icon={Clock} label="Duration" value={durationLabel(content.duration_seconds)} />
+                  <Info icon={Tag} label="Genres" value={genres.join(', ') || 'N/A'} />
+                  <Info icon={Eye} label="Views" value={statValue(stats.views || content.views || content.view_count)} />
                 </div>
               </div>
             </div>
 
-            <div className="stats-section">
-              <div className="stat-item">
-                <Star size={16} />
-                <span>{content.rating}</span>
-              </div>
-              <div className="stat-item">
-                <Eye size={16} />
-                <span>{content.views.toLocaleString()} views</span>
-              </div>
-              <div className="stat-item">
-                <Heart size={16} />
-                <span>{content.likes.toLocaleString()} likes</span>
-              </div>
-            </div>
-          </div>
-
-          <p className="content-description">{content.description}</p>
-
-          {/* Action Buttons */}
-          <div className="action-buttons">
-            <button 
-              className={`btn btn-secondary ${isLiked ? 'liked' : ''}`}
-              onClick={handleLike}
-            >
-              <Heart size={16} fill={isLiked ? 'currentColor' : 'none'} />
-              {isLiked ? 'Liked' : 'Like'}
-            </button>
-            
-            <button 
-              className={`btn btn-secondary ${isBookmarked ? 'bookmarked' : ''}`}
-              onClick={handleBookmark}
-            >
-              <Bookmark size={16} fill={isBookmarked ? 'currentColor' : 'none'} />
-              {isBookmarked ? 'Saved' : 'Save'}
-            </button>
-            
-            <button className="btn btn-secondary" onClick={handleShare}>
-              <Share2 size={16} />
-              Share
-            </button>
-            
-            <button className="btn btn-secondary" onClick={handleDownload}>
-              <Download size={16} />
-              Download
-            </button>
-          </div>
-
-          {/* Cast & Crew */}
-          <div className="cast-section">
-            <h3>Cast & Crew</h3>
-            <div className="cast-info">
-              <div className="cast-item">
-                <span className="role">Director:</span>
-                <span className="name">{content.director}</span>
-              </div>
-              <div className="cast-item">
-                <span className="role">Cast:</span>
-                <span className="name">{content.cast.join(', ')}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div className="tags-section">
-            <h3>Tags</h3>
-            <div className="tags-list">
-              {content.tags.map((tag, index) => (
-                <span key={index} className="tag">
-                  #{tag}
-                </span>
+            <div className="tabs">
+              {tabs.map(tab => (
+                <button key={tab} className={`tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
+                  {tab[0].toUpperCase() + tab.slice(1)}
+                </button>
               ))}
             </div>
-          </div>
-        </div>
 
-        {/* Related Content */}
-        <div className="related-content">
-          <h3>Related Content</h3>
-          <div className="related-grid">
-            {content.relatedContent.map((item) => (
-              <div key={item.id} className="related-card">
-                <div className="related-thumbnail">
-                  <img src={item.thumbnail} alt={item.title} />
-                </div>
-                <div className="related-info">
-                  <h4>{item.title}</h4>
-                  <span className="related-type">{item.type}</span>
+            {activeTab === 'overview' && (
+              <div className="card">
+                <div className="card-title">Backend Content Record</div>
+                <div className="detail-grid">
+                  <Field label="ID" value={content.id || content._id} />
+                  <Field label="Language" value={content.language} />
+                  <Field label="Director" value={content.director} />
+                  <Field label="Free/Paid" value={content.is_free ? 'Free' : `Paid - ₹${content.price_tvod || 0}`} />
+                  <Field label="Created" value={content.created_at} />
+                  <Field label="Updated" value={content.updated_at} />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            )}
 
-        {/* Settings Panel */}
-        {showSettings && (
-          <div className="settings-panel">
-            <div className="panel-header">
-              <h3>Video Settings</h3>
-              <button className="btn-icon" onClick={() => setShowSettings(false)}>
-                ×
-              </button>
-            </div>
-            <div className="panel-content">
-              <div className="setting-item">
-                <label>Playback Speed</label>
-                <select className="setting-select" defaultValue="1">
-                  <option value="0.5">0.5x</option>
-                  <option value="0.75">0.75x</option>
-                  <option value="1">1x</option>
-                  <option value="1.25">1.25x</option>
-                  <option value="1.5">1.5x</option>
-                  <option value="2">2x</option>
-                </select>
+            {activeTab === 'cast' && (
+              <div className="card">
+                <div className="card-title">Cast From /content/{contentId}/cast</div>
+                {cast.length ? (
+                  <div className="list">
+                    {cast.map((member, index) => (
+                      <div className="list-row" key={member.id || member._id || index}>
+                        <div className="avatar">{(member.name || member.actor_name || '?')[0]}</div>
+                        <div>
+                          <div className="row-title">{member.name || member.actor_name || member.full_name || 'Unnamed cast member'}</div>
+                          <div className="row-sub">{member.role || member.character_name || 'Cast'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="empty"><Users size={32}/><p>No cast added.</p></div>}
               </div>
-              <div className="setting-item">
-                <label>Quality</label>
-                <select className="setting-select">
-                  <option value="auto">Auto</option>
-                  <option value="1080p">1080p</option>
-                  <option value="720p">720p</option>
-                  <option value="480p">480p</option>
-                  <option value="360p">360p</option>
-                </select>
+            )}
+
+            {activeTab === 'episodes' && (
+              <div className="card">
+                <div className="card-title">Episodes From /content/{contentId}/episodes</div>
+                {episodes.length ? (
+                  <div className="list">
+                    {episodes.map((episode, index) => (
+                      <div className="list-row" key={episode.id || episode._id || index}>
+                        <div className="episode-num">{episode.episode_number || index + 1}</div>
+                        <div>
+                          <div className="row-title">{episode.title || `Episode ${index + 1}`}</div>
+                          <div className="row-sub">{durationLabel(episode.duration_seconds)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <div className="empty"><Tv size={32}/><p>No episodes added.</p></div>}
               </div>
-              <div className="setting-item">
-                <label>Subtitles</label>
-                <select className="setting-select">
-                  <option value="off">Off</option>
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                </select>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
       </div>
 
       <style>{`
-        .content-detail-section {
-          min-height: 100vh;
-          padding: 28px 0 56px;
-          background: var(--bg-primary);
-          opacity: 0;
-          transform: translateY(20px);
-          transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-
-        .content-detail-section.visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        .content-detail-container {
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 0 24px;
-        }
-
-        .video-player {
-          margin-bottom: 32px;
-          border-radius: 20px;
-          overflow: hidden;
-          box-shadow: var(--shadow-soft);
-        }
-
-        .video-container {
-          position: relative;
-          width: 100%;
-          padding-bottom: 56.25%;
-          background: #000;
-        }
-
-        .video-thumbnail {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .video-overlay {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(0, 0, 0, 0.3);
-          transition: opacity 0.3s ease;
-        }
-
-        .video-overlay:hover {
-          background: rgba(0, 0, 0, 0.5);
-        }
-
-        .play-button-large {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          background: rgba(128, 0, 32, 0.9);
-          border: none;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-
-        .play-button-large:hover {
-          background: var(--accent);
-          transform: scale(1.1);
-        }
-
-        .video-controls {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          padding: 20px;
-          background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .controls-left,
-        .controls-right {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-
-        .control-btn {
-          background: transparent;
-          border: none;
-          color: white;
-          cursor: pointer;
-          padding: 8px;
-          border-radius: 4px;
-          transition: background 0.2s ease;
-        }
-
-        .control-btn:hover {
-          background: rgba(255, 255, 255, 0.1);
-        }
-
-        .time-display {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          color: white;
-          font-size: 14px;
-        }
-
-        .progress-bar {
-          width: 200px;
-          height: 4px;
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 2px;
-          overflow: hidden;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: var(--accent);
-          border-radius: 2px;
-        }
-
-        .volume-control {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: white;
-        }
-
-        .volume-slider {
-          width: 80px;
-          height: 4px;
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 2px;
-          outline: none;
-          cursor: pointer;
-        }
-
-        .content-info {
-          background: var(--panel-glass);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          padding: 32px;
-          backdrop-filter: blur(24px);
-          box-shadow: var(--shadow-soft);
-          margin-bottom: 32px;
-        }
-
-        .info-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          margin-bottom: 24px;
-        }
-
-        .title-section h1 {
-          color: var(--text-primary);
-          font-size: 32px;
-          margin-bottom: 16px;
-        }
-
-        .content-meta {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 16px;
-        }
-
-        .meta-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .stats-section {
-          display: flex;
-          gap: 24px;
-        }
-
-        .stat-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .stat-item:first-child {
-          color: #f59e0b;
-        }
-
-        .content-description {
-          color: var(--text-secondary);
-          line-height: 1.6;
-          margin-bottom: 24px;
-          font-size: 16px;
-        }
-
-        .action-buttons {
-          display: flex;
-          gap: 16px;
-          margin-bottom: 32px;
-          flex-wrap: wrap;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 20px;
-          border: none;
-          border-radius: 12px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--text-primary);
-          border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-secondary.liked,
-        .btn-secondary.bookmarked {
-          background: var(--accent);
-          color: white;
-          border-color: var(--accent);
-        }
-
-        .cast-section,
-        .tags-section {
-          margin-bottom: 24px;
-        }
-
-        .cast-section h3,
-        .tags-section h3 {
-          color: var(--text-primary);
-          font-size: 18px;
-          margin-bottom: 12px;
-        }
-
-        .cast-info {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .cast-item {
-          display: flex;
-          gap: 12px;
-        }
-
-        .cast-item .role {
-          color: var(--text-secondary);
-          font-weight: 500;
-          min-width: 80px;
-        }
-
-        .cast-item .name {
-          color: var(--text-primary);
-        }
-
-        .tags-list {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .tag {
-          padding: 6px 12px;
-          background: rgba(128, 0, 32, 0.1);
-          color: var(--accent);
-          border-radius: 20px;
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .related-content {
-          background: var(--panel-glass);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          padding: 32px;
-          backdrop-filter: blur(24px);
-          box-shadow: var(--shadow-soft);
-        }
-
-        .related-content h3 {
-          color: var(--text-primary);
-          font-size: 20px;
-          margin-bottom: 20px;
-        }
-
-        .related-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          gap: 20px;
-        }
-
-        .related-card {
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          overflow: hidden;
-          transition: all 0.3s ease;
-        }
-
-        .related-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-        }
-
-        .related-thumbnail {
-          width: 100%;
-          height: 140px;
-          overflow: hidden;
-        }
-
-        .related-thumbnail img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .related-info {
-          padding: 12px;
-        }
-
-        .related-info h4 {
-          color: var(--text-primary);
-          font-size: 14px;
-          margin-bottom: 4px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .related-type {
-          color: var(--text-secondary);
-          font-size: 12px;
-        }
-
-        .settings-panel {
-          position: fixed;
-          right: 24px;
-          top: 50%;
-          transform: translateY(-50%);
-          background: rgba(19, 23, 30, 0.98);
-          border: 1px solid var(--border);
-          border-radius: 16px;
-          padding: 24px;
-          backdrop-filter: blur(24px);
-          box-shadow: var(--shadow-soft);
-          z-index: 1000;
-          min-width: 280px;
-        }
-
-        .panel-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 20px;
-        }
-
-        .panel-header h3 {
-          color: var(--text-primary);
-          font-size: 16px;
-        }
-
-        .btn-icon {
-          width: 24px;
-          height: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: transparent;
-          border: none;
-          color: var(--text-secondary);
-          font-size: 16px;
-          cursor: pointer;
-          border-radius: 4px;
-          transition: background 0.2s ease;
-        }
-
-        .btn-icon:hover {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--text-primary);
-        }
-
-        .panel-content {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .setting-item {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .setting-item label {
-          color: var(--text-primary);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .setting-select {
-          padding: 8px 12px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          color: var(--text-primary);
-          font-size: 14px;
-          cursor: pointer;
-          outline: none;
-        }
-
-        .setting-select:focus {
-          border-color: var(--accent);
-        }
-
-        @media (max-width: 768px) {
-          .info-header {
-            flex-direction: column;
-            gap: 16px;
-          }
-
-          .stats-section {
-            flex-wrap: wrap;
-            gap: 12px;
-          }
-
-          .action-buttons {
-            justify-content: center;
-          }
-
-          .related-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .settings-panel {
-            right: 12px;
-            left: 12px;
-            top: auto;
-            bottom: 20px;
-            transform: none;
-          }
-
-          .time-display .progress-bar {
-            width: 100px;
-          }
-
-          .volume-slider {
-            width: 60px;
-          }
-        }
+        ${PAGE_STYLES}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spin,.spin-icon{animation:spin .75s linear infinite}
+        .loader{display:flex;align-items:center;justify-content:center;gap:12px;padding:70px 0;color:rgba(255,255,255,.35);font-size:14px}
+        .spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.12);border-top-color:rgba(255,255,255,.55)}
+        .api-error{display:flex;align-items:center;gap:10px;padding:14px 16px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:12px;color:#fca5a5;font-size:13px;margin-bottom:16px}
+        .api-error .btn{margin-left:auto}
+        .detail-hero{display:grid;grid-template-columns:260px 1fr;gap:22px;background:#141414;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px;margin-bottom:18px}
+        .poster{aspect-ratio:2/3;background:#1a1a1a;border-radius:12px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.25);overflow:hidden}
+        .poster img{width:100%;height:100%;object-fit:cover}
+        .detail-main{display:flex;flex-direction:column;justify-content:center;min-width:0}
+        .meta-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+        .meta-row .badge{display:flex;align-items:center;gap:5px}
+        .detail-main h2{font-family:'Sora',sans-serif;font-size:28px;line-height:1.15;margin:0 0 10px;color:#f5f5f5}
+        .detail-main p{font-size:14px;color:rgba(255,255,255,.50);line-height:1.7;margin:0 0 18px;max-width:860px}
+        .quick-grid,.detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+        .info,.field{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:12px}
+        .info{display:flex;gap:10px;align-items:flex-start}
+        .info svg{color:#ff8080;flex-shrink:0}
+        .info-label,.field-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.28);margin-bottom:5px}
+        .info-value,.field-value{font-size:13px;font-weight:650;color:rgba(255,255,255,.72);overflow-wrap:anywhere}
+        .list{display:flex;flex-direction:column;gap:8px}
+        .list-row{display:flex;align-items:center;gap:12px;padding:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px}
+        .avatar,.episode-num{width:34px;height:34px;border-radius:10px;background:rgba(204,26,26,.15);border:1px solid rgba(204,26,26,.25);display:flex;align-items:center;justify-content:center;color:#ff8080;font-weight:800}
+        .row-title{font-size:13px;font-weight:700;color:#f5f5f5}
+        .row-sub{font-size:12px;color:rgba(255,255,255,.36);margin-top:3px}
+        @media(max-width:900px){.detail-hero{grid-template-columns:1fr}.poster{max-width:240px}.quick-grid,.detail-grid{grid-template-columns:1fr 1fr}}
+        @media(max-width:560px){.quick-grid,.detail-grid{grid-template-columns:1fr}}
       `}</style>
+    </div>
+  );
+}
+
+function Info({ icon: Icon, label, value }) {
+  return (
+    <div className="info">
+      <Icon size={16}/>
+      <div><div className="info-label">{label}</div><div className="info-value">{value || 'N/A'}</div></div>
+    </div>
+  );
+}
+
+function Field({ label, value }) {
+  return (
+    <div className="field">
+      <div className="field-label">{label}</div>
+      <div className="field-value">{value || 'N/A'}</div>
     </div>
   );
 }

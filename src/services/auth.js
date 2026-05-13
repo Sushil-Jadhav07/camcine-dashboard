@@ -1,10 +1,9 @@
 import { apiClient, ApiError } from './api.js';
-import { buildRegisterPayload, normalizeUserFromApi } from './roleMapper.js';
 
 export const authService = {
   async register(userData) {
     try {
-      const response = await apiClient.post('/auth/register', buildRegisterPayload(userData));
+      const response = await apiClient.post('/auth/register', userData);
       
       if (response.success) {
         return {
@@ -39,7 +38,7 @@ export const authService = {
           message: response.message,
           data: {
             token,
-            user: normalizeUserFromApi(user)
+            user
           }
         };
       }
@@ -60,7 +59,7 @@ export const authService = {
       if (response.success && response.data) {
         return {
           success: true,
-          data: normalizeUserFromApi(response.data.user)
+          data: response.data.user
         };
       }
       

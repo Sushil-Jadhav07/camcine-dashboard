@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { LoginSection } from './sections/LoginSection';
 import { DashboardSection } from './sections/DashboardSection';
@@ -23,13 +23,6 @@ import './App.css';
 
 import { Section, UserRole } from './constants/sections';
 
-const AddTitleType = {
-  FILM: 'film',
-  SERIES: 'series',
-  MUSIC: 'music',
-  PODCAST: 'podcast',
-};
-
 const defaultSections = {
   [UserRole.ADMIN]: Section.DASHBOARD,
   [UserRole.MANAGER]: Section.DASHBOARD,
@@ -39,115 +32,111 @@ const defaultSections = {
 
 const roleSections = {
   [UserRole.ADMIN]: [
-    Section.DASHBOARD,
-    Section.CONTENT,
-    Section.CONTENT_DETAIL,
-    Section.ADD_TITLE_TYPE,
-    Section.ADD_TITLE,
-    Section.ACTOR_QUEUE,
-    Section.SONGS,
-    Section.NEWS,
-    Section.USERS,
-    Section.SUBSCRIPTIONS,
-    Section.PAYMENTS,
-    Section.ANALYTICS,
-    Section.SETTINGS,
-    Section.NOTIFICATIONS,
+    Section.DASHBOARD, Section.CONTENT, Section.CONTENT_DETAIL,
+    Section.ADD_TITLE_TYPE, Section.ADD_TITLE, Section.ACTOR_QUEUE,
+    Section.SONGS, Section.NEWS, Section.USERS, Section.SUBSCRIPTIONS,
+    Section.PAYMENTS, Section.ANALYTICS, Section.SETTINGS, Section.NOTIFICATIONS,
   ],
   [UserRole.MANAGER]: [
-    Section.DASHBOARD,
-    Section.CONTENT,
-    Section.CONTENT_DETAIL,
-    Section.ADD_TITLE_TYPE,
-    Section.ADD_TITLE,
-    Section.SONGS,
-    Section.MANAGER_EARNINGS,
-    Section.SETTINGS,
+    Section.DASHBOARD, Section.CONTENT, Section.CONTENT_DETAIL,
+    Section.ADD_TITLE_TYPE, Section.ADD_TITLE, Section.SONGS,
+    Section.MANAGER_EARNINGS, Section.SETTINGS,
   ],
   [UserRole.USER]: [Section.SUBSCRIPTIONS, Section.PAYMENTS, Section.SETTINGS],
   [UserRole.ACTOR]: [Section.ACTOR_PORTAL, Section.SETTINGS],
 };
 
-const getDefaultSection = (role) => defaultSections[role] || Section.LOGIN;
-
 const canAccessSection = (section, role) => {
   if (section === Section.LOGIN) return !role;
   if (!role) return false;
-  return roleSections[role]?.includes(section) ?? false;
+  return (roleSections[role] || []).includes(section);
 };
 
-function AppContent() {
-  const { isAuthenticated, isLoading, user, role: authRole, logout } = useAuth();
+function AppInner() {
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [currentSection, setCurrentSection] = useState(Section.LOGIN);
-  const [addTitleType, setAddTitleType] = useState(AddTitleType.FILM);
-  const [theme, setTheme] = useState(() => localStorage.getItem('camcine-theme') || 'dark');
+  const [showNavigation, setShowNavigation] = useState(false);
+  const [addTitleType, setAddTitleType] = useState('movie');
+  const [selectedContentId, setSelectedContentId] = useState(null);
 
-  const userRole = authRole || user?.role || null;
-  const userId = user?.id || user?.email || '';
-  const showNavigation = isAuthenticated && !!userRole;
+  const userRole = user?.role || null;
+  const userId = user?.id || '';
 
+  // When auth state resolves, navigate based on role
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('camcine-theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    if (isLoading) return;
-
-    if (!isAuthenticated || !userRole) {
-      setCurrentSection(Section.LOGIN);
-      return;
+    if (!isLoading) {
+      if (isAuthenticated && userRole) {
+        setShowNavigation(true);
+        setCurrentSection(defaultSections[userRole] || Section.DASHBOARD);
+      } else {
+        setShowNavigation(false);
+        setCurrentSection(Section.LOGIN);
+      }
     }
+  }, [isAuthenticated, userRole, isLoading]);
 
-    setCurrentSection((previousSection) =>
-      canAccessSection(previousSection, userRole) ? previousSection : getDefaultSection(userRole)
-    );
-  }, [isAuthenticated, isLoading, userRole]);
+  // Guard section access
+  useEffect(() => {
+    if (!isAuthenticated || !userRole) return;
+    if (!canAccessSection(currentSection, userRole)) {
+      setCurrentSection(defaultSections[userRole] || Section.DASHBOARD);
+    }
+  }, [currentSection, isAuthenticated, userRole]);
 
-  const handleLogin = ({ role }) => {
-    setCurrentSection(getDefaultSection(role));
+  const handleLogin = ({ role, userId: _uid }) => {
+    // Role is already set in AuthContext from the API response
+    // This callback is just to trigger navigation from LoginSection
+    // Navigation is handled by the useEffect above via isAuthenticated
   };
 
   const handleLogout = () => {
     logout();
-    setCurrentSection(Section.LOGIN);
   };
 
-  const toggleTheme = () => {
-    setTheme((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'));
-  };
+  if (isLoading) {
+    return (
+      <div style={{minHeight:'100vh',background:'#080808',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:16}}>
+          <div style={{width:24,height:24,borderRadius:'50%',border:'2px solid rgba(255,255,255,.10)',borderTopColor:'rgba(204,26,26,.80)',animation:'spin .65s linear infinite'}}/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.30)'}}>Loading…</div>
+        </div>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
+
+  const guardedSection =
+    isAuthenticated && userRole && !canAccessSection(currentSection, userRole)
+      ? defaultSections[userRole]
+      : currentSection;
 
   const renderSection = () => {
-    if (isLoading) {
-      return (
-        <section className="login-shell">
-          <div className="login-card" style={{ width: 'min(520px, 100%)' }}>
-            <span className="hero-topline">Camcine access</span>
-            <h2 style={{ marginTop: 16 }}>Loading session</h2>
-            <p>Checking the authenticated user via `/auth/me`.</p>
-          </div>
-        </section>
-      );
-    }
-
-    const guardedSection =
-      isAuthenticated && userRole && !canAccessSection(currentSection, userRole)
-        ? getDefaultSection(userRole)
-        : currentSection;
-
     switch (guardedSection) {
       case Section.LOGIN:
         return <LoginSection onLogin={handleLogin} />;
       case Section.DASHBOARD:
-        return userRole === UserRole.MANAGER
-          ? <ManagerDashboardSection onNavigate={setCurrentSection} userId={userId} />
-          : <DashboardSection onNavigate={setCurrentSection} />;
+        if (userRole === UserRole.MANAGER) {
+          return <ManagerDashboardSection onNavigate={setCurrentSection} userId={userId} />;
+        }
+        return <DashboardSection onNavigate={setCurrentSection} />;
       case Section.CONTENT:
-        return <ContentLibrarySection onNavigate={setCurrentSection} userRole={userRole} userId={userId} />;
+        return (
+          <ContentLibrarySection
+            onNavigate={setCurrentSection}
+            userRole={userRole}
+            userId={userId}
+            onSelectContent={setSelectedContentId}
+          />
+        );
       case Section.CONTENT_DETAIL:
-        return <ContentDetailSection onNavigate={setCurrentSection} />;
+        return <ContentDetailSection onNavigate={setCurrentSection} contentId={selectedContentId} />;
       case Section.ADD_TITLE_TYPE:
-        return <AddTitleTypeSection onNavigate={setCurrentSection} onSelectType={setAddTitleType} />;
+        return (
+          <AddTitleTypeSection
+            onNavigate={setCurrentSection}
+            onSelectType={setAddTitleType}
+          />
+        );
       case Section.ADD_TITLE:
         return (
           <AddTitleSection
@@ -162,7 +151,13 @@ function AppContent() {
       case Section.PAYMENTS:
         return <PaymentsSection />;
       case Section.SETTINGS:
-        return <SettingsSection onLogout={handleLogout} userRole={userRole ?? UserRole.USER} userId={userId} />;
+        return (
+          <SettingsSection
+            onLogout={handleLogout}
+            userRole={userRole ?? UserRole.USER}
+            userId={userId}
+          />
+        );
       case Section.ACTOR_PORTAL:
         return <ActorPortalSection onNavigate={setCurrentSection} userId={userId} />;
       case Section.ACTOR_QUEUE:
@@ -178,7 +173,7 @@ function AppContent() {
       case Section.NOTIFICATIONS:
         return <NotificationsSection onNavigate={setCurrentSection} />;
       default:
-        return <LoginSection onLogin={handleLogin} />;
+        return <DashboardSection onNavigate={setCurrentSection} />;
     }
   };
 
@@ -191,8 +186,6 @@ function AppContent() {
           onLogout={handleLogout}
           userRole={userRole}
           userId={userId}
-          theme={theme}
-          onToggleTheme={toggleTheme}
         />
       )}
       <main className={`main-content ${showNavigation ? 'with-nav' : ''}`}>
@@ -205,7 +198,7 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AppInner />
     </AuthProvider>
   );
 }

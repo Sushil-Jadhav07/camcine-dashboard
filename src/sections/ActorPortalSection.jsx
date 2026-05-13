@@ -1,244 +1,118 @@
-import { useState } from 'react';
-import {
-  BadgeCheck,
-  CheckCircle,
-  Clock,
-  Film,
-  Loader2,
-  Mail,
-  Phone,
-  Plus,
-  Upload,
-  User,
-  Video,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { UserCircle, Film, Star, Calendar, Edit2, Save, Camera, Award, TrendingUp, Eye, X } from 'lucide-react';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
 
-const mockActorData = {
-  profile: {
-    name: 'Alex Johnson',
-    email: 'alex.johnson@example.com',
-    phone: '+1 (555) 123-4567',
-    bio: 'Professional actor with 10+ years experience in film, television, and commercial work. Specialized in drama and action roles.',
-    avatar: 'https://ui-avatars.com/api/?name=Alex+Johnson&background=780000&color=fff',
-    rating: 4.8,
-    completedJobs: 127,
-    verified: true,
-  },
-  upcomingJobs: [
-    { id: 1, title: 'Mystery Thriller', role: 'Lead Detective', date: '2024-03-20', status: 'confirmed', director: 'Sarah Chen' },
-    { id: 2, title: 'Commercial Campaign', role: 'Brand Ambassador', date: '2024-03-22', status: 'pending', director: 'Mike Roberts' },
-    { id: 3, title: 'Independent Film', role: 'Supporting Actor', date: '2024-03-25', status: 'confirmed', director: 'Lisa Martinez' },
-  ],
-  portfolio: [
-    { id: 1, title: 'The Last Stand', type: 'Film', year: 2023, role: 'Lead', thumbnail: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=900&q=80' },
-    { id: 2, title: 'City Lights', type: 'Series', year: 2023, role: 'Recurring', thumbnail: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=900&q=80' },
-    { id: 3, title: 'Brand X Commercial', type: 'Commercial', year: 2022, role: 'Lead', thumbnail: 'https://images.unsplash.com/photo-1499364615650-ec38552f4f34?auto=format&fit=crop&w=900&q=80' },
-  ],
-};
+const mockProfile = { name:'Alex Johnson', role:'Actor', bio:'Award-winning actor with 8 years of experience in film and television. Known for versatile roles ranging from action leads to dramatic supporting characters.', experience:'8 years', age:32, languages:['English','Hindi'], genres:['Thriller','Drama','Action'], totalMovies:14, totalViews:'2.4M', avgRating:4.7 };
+const mockMovies = [
+  { id:1, title:'The Midnight Archive', role:'Lead',      year:2024, status:'filming',   rating:0 },
+  { id:2, title:'Urban Legends',        role:'Supporting',year:2023, status:'released',  rating:4.8 },
+  { id:3, title:'City Beats',           role:'Lead',      year:2023, status:'released',  rating:4.6 },
+  { id:4, title:'Dark Horizon',         role:'Villain',   year:2022, status:'released',  rating:4.7 },
+];
+const statusCfg = { filming:'b-yellow', released:'b-green', 'post-production':'b-blue' };
 
-export function ActorPortalSection({ onNavigate }) {
-  const [activeTab, setActiveTab] = useState('profile');
-  const [uploading, setUploading] = useState(false);
+export function ActorPortalSection({ onNavigate, userId }) {
+  const [profile, setProfile] = useState(mockProfile);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ name:mockProfile.name, bio:mockProfile.bio, experience:mockProfile.experience });
+  const [visible, setVisible] = useState(false);
+  useEffect(()=>{ setTimeout(()=>setVisible(true),80); },[]);
 
-  const handleFileUpload = (event) => {
-    if (event.target.files?.length) {
-      setUploading(true);
-      window.setTimeout(() => setUploading(false), 2000);
-    }
-  };
+  const save=()=>{ setProfile(p=>({...p,...form})); setEditing(false); };
 
   return (
-    <section className="dashboard-shell">
-      <div className="shell-container">
-        <div className="hero-panel compact">
-          <div className="hero-content hero-grid">
-            <div className="hero-copy">
-              <span className="hero-topline">Actor portal</span>
-              <h1>Profile, booking queue, and portfolio in a sharper presentation.</h1>
-              <p>All current tabs stay intact. The redesign shifts this into a polished profile-first workspace.</p>
-            </div>
-            <div className="hero-side">
-              <button className="btn btn-secondary" onClick={() => onNavigate('actor-queue')}>
-                <Clock size={16} />
-                View Queue
-              </button>
-            </div>
+    <div className={`page ${visible?'visible':''}`}>
+      <div className="page-inner">
+        <div className="ph">
+          <div className="ph-left"><h1>My Profile</h1><p>Actor portal — manage your profile and filmography</p></div>
+          <div className="ph-right">
+            {editing ? (
+              <><button className="btn btn-secondary btn-sm" onClick={()=>setEditing(false)}>Cancel</button>
+              <button className="btn btn-primary btn-sm" onClick={save}><Save size={13}/>Save</button></>
+            ) : (
+              <button className="btn btn-secondary btn-sm" onClick={()=>setEditing(true)}><Edit2 size={13}/>Edit Profile</button>
+            )}
           </div>
         </div>
 
-        <div className="surface-panel">
-          <div className="surface-content toolbar">
-            <div className="toolbar-group">
+        <div className="ap-layout">
+          {/* Profile card */}
+          <div className="card ap-profile">
+            <div className="ap-avatar-wrap">
+              <div className="avatar avatar-xl">{profile.name[0]}</div>
+              {editing&&<button className="ap-camera-btn"><Camera size={14}/></button>}
+            </div>
+            {editing ? (
+              <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:16}}>
+                <div className="fg"><label className="lbl">Display Name</label><input className="inp" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+                <div className="fg"><label className="lbl">Experience</label><input className="inp" value={form.experience} onChange={e=>setForm(p=>({...p,experience:e.target.value}))}/></div>
+                <div className="fg"><label className="lbl">Bio</label><textarea className="inp" rows={4} value={form.bio} onChange={e=>setForm(p=>({...p,bio:e.target.value}))} style={{resize:'vertical'}}/></div>
+              </div>
+            ) : (
+              <>
+                <div style={{textAlign:'center',marginTop:14}}>
+                  <div style={{fontSize:18,fontWeight:800,color:'#f5f5f5'}}>{profile.name}</div>
+                  <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:4}}>{profile.role} · {profile.experience}</div>
+                </div>
+                <div className="sect-divider"/>
+                <p style={{fontSize:13,color:'rgba(255,255,255,.55)',lineHeight:1.7,textAlign:'center'}}>{profile.bio}</p>
+                <div className="sect-divider"/>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'rgba(255,255,255,.30)',marginBottom:4}}>Languages</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>{profile.languages.map(l=><span key={l} className="badge b-blue" style={{fontSize:11}}>{l}</span>)}</div>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase',color:'rgba(255,255,255,.30)',marginTop:6,marginBottom:4}}>Genres</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6}}>{profile.genres.map(g=><span key={g} className="badge b-gray" style={{fontSize:11}}>{g}</span>)}</div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Right column */}
+          <div style={{display:'flex',flexDirection:'column',gap:18}}>
+            {/* Stats */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
               {[
-                ['profile', 'Profile', User],
-                ['jobs', 'Jobs', Film],
-                ['portfolio', 'Portfolio', Video],
-              ].map(([id, label, Icon]) => (
-                <button key={id} className={`tab-button ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id)}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <Icon size={16} />
-                    {label}
-                  </span>
-                </button>
+                {label:'Movies',      value:profile.totalMovies, icon:Film},
+                {label:'Total Views', value:profile.totalViews,  icon:Eye},
+                {label:'Avg Rating',  value:profile.avgRating,   icon:Star},
+              ].map(({label,value,icon:Icon},i)=>(
+                <div key={i} className="sc">
+                  <div className="sc-icon"><Icon size={18}/></div>
+                  <div><div className="sc-label">{label}</div><div className="sc-value" style={{fontSize:22}}>{value}</div></div>
+                </div>
               ))}
             </div>
-          </div>
-        </div>
 
-        {activeTab === 'profile' && (
-          <div className="content-grid-2">
-            <div className="surface-panel">
-              <div className="surface-content">
-                <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <img
-                    src={mockActorData.profile.avatar}
-                    alt={mockActorData.profile.name}
-                    style={{ width: 110, height: 110, borderRadius: 26, border: '1px solid rgba(255,244,242,0.12)' }}
-                  />
-                  <div>
-                    <div className="inline-meta" style={{ marginBottom: 8 }}>
-                      {mockActorData.profile.verified && <span className="status-pill success"><BadgeCheck size={14} /> Verified</span>}
-                    </div>
-                    <h2 style={{ margin: 0 }}>{mockActorData.profile.name}</h2>
-                    <p className="subtle" style={{ marginTop: 10 }}>{mockActorData.profile.bio}</p>
-                    <div className="inline-meta" style={{ marginTop: 12 }}>
-                      <span><Mail size={14} /> {mockActorData.profile.email}</span>
-                      <span><Phone size={14} /> {mockActorData.profile.phone}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="metric-grid" style={{ gridTemplateColumns: '1fr' }}>
-              <div className="metric-card">
-                <div className="metric-icon"><Film size={22} /></div>
-                <span className="eyebrow">Completed Jobs</span>
-                <strong>{mockActorData.profile.completedJobs}</strong>
-              </div>
-              <div className="metric-card">
-                <div className="metric-icon"><BadgeCheck size={22} /></div>
-                <span className="eyebrow">Profile Rating</span>
-                <strong>{mockActorData.profile.rating}</strong>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'jobs' && (
-          <div className="surface-panel">
-            <div className="surface-content">
-              <div className="section-heading">
-                <div>
-                  <h3>Upcoming Jobs</h3>
-                  <p>Same data, organized as a casting call sheet.</p>
-                </div>
-              </div>
-              <div className="list-stack">
-                {mockActorData.upcomingJobs.map((job) => (
-                  <div key={job.id} className="list-card">
-                    <div>
-                      <strong style={{ display: 'block', marginBottom: 4 }}>{job.title}</strong>
-                      <div className="subtle">{job.role}</div>
-                      <div className="inline-meta" style={{ marginTop: 10 }}>
-                        <span>Director: {job.director}</span>
-                        <span>{job.date}</span>
+            {/* Filmography */}
+            <div className="card">
+              <div style={{marginBottom:16}}><div className="card-title">Filmography</div><div className="card-sub">Your movie history</div></div>
+              <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                {mockMovies.map(m=>(
+                  <div key={m.id} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',borderRadius:12,transition:'background .12s',cursor:'default'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'} onMouseLeave={e=>e.currentTarget.style.background=''}>
+                    <div style={{width:36,height:36,borderRadius:10,background:'rgba(204,26,26,.10)',border:'1px solid rgba(204,26,26,.18)',color:'#ff6b6b',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Film size={15}/></div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13.5,fontWeight:600,color:'#f5f5f5'}}>{m.title}</div>
+                      <div style={{fontSize:11,color:'rgba(255,255,255,.38)',display:'flex',alignItems:'center',gap:8,marginTop:2}}>
+                        <span>{m.role}</span><span>·</span><span>{m.year}</span>
+                        {m.rating>0&&<span style={{display:'flex',alignItems:'center',gap:3,color:'#fbbf24'}}><Star size={10}/>{m.rating}</span>}
                       </div>
                     </div>
-                    <span className={`status-pill ${job.status === 'confirmed' ? 'success' : 'warning'}`}>
-                      {job.status === 'confirmed' ? <CheckCircle size={14} /> : <Clock size={14} />}
-                      {job.status}
-                    </span>
+                    <span className={`badge ${statusCfg[m.status]||'b-gray'}`} style={{fontSize:10}}>{m.status}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-        )}
-
-        {activeTab === 'portfolio' && (
-          <div className="surface-panel">
-            <div className="surface-content">
-              <div className="section-heading">
-                <div>
-                  <h3>Portfolio</h3>
-                  <p>Selected work displayed as editorial-style tiles.</p>
-                </div>
-                <button className="btn btn-primary">
-                  <Plus size={16} />
-                  Add Work
-                </button>
-              </div>
-              <div className="poster-grid">
-                {mockActorData.portfolio.map((item) => (
-                  <article key={item.id} className="poster-card">
-                    <div className="poster-media">
-                      <img src={item.thumbnail} alt={item.title} />
-                    </div>
-                    <div className="poster-body">
-                      <h3 style={{ marginBottom: 8 }}>{item.title}</h3>
-                      <div className="inline-meta">
-                        <span>{item.type}</span>
-                        <span>{item.year}</span>
-                        <span>{item.role}</span>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="surface-panel">
-          <div className="surface-content">
-            <div className="section-heading">
-              <div>
-                <h3>Upload Area</h3>
-                <p>Upload interaction is preserved.</p>
-              </div>
-            </div>
-            <label
-              htmlFor="actor-upload"
-              style={{
-                display: 'grid',
-                placeItems: 'center',
-                minHeight: 180,
-                borderRadius: 24,
-                border: '1px dashed rgba(255,244,242,0.18)',
-                background: 'rgba(255,244,242,0.04)',
-                cursor: 'pointer',
-                textAlign: 'center',
-                gap: 10,
-                padding: 20,
-              }}
-            >
-              {uploading ? (
-                <>
-                  <Loader2 size={24} className="spin-loader" />
-                  <strong>Uploading...</strong>
-                </>
-              ) : (
-                <>
-                  <Upload size={24} />
-                  <strong>Upload headshots or demo reel</strong>
-                  <span className="subtle">Drag and drop or click to browse</span>
-                </>
-              )}
-            </label>
-            <input id="actor-upload" type="file" multiple accept="image/*,video/*" style={{ display: 'none' }} onChange={handleFileUpload} />
-          </div>
         </div>
-
-        <style>{`
-          .spin-loader {
-            animation: spin-loader 1s linear infinite;
-          }
-          @keyframes spin-loader {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
-    </section>
+
+      <style>{`${PAGE_STYLES}
+        .ap-layout { display:grid; grid-template-columns:280px 1fr; gap:20px; align-items:start; }
+        .ap-profile { display:flex; flex-direction:column; align-items:center; text-align:center; }
+        .ap-avatar-wrap { position:relative; }
+        .ap-camera-btn { position:absolute; bottom:-4px; right:-4px; width:28px; height:28px; border-radius:9px; background:#cc1a1a; border:2px solid #141414; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+        @media(max-width:900px){ .ap-layout { grid-template-columns:1fr; } }
+      `}</style>
+    </div>
   );
 }

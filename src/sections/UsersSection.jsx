@@ -1,527 +1,327 @@
 import { useState, useEffect } from 'react';
-import { 
-  AlertCircle,
-  Search, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Mail,
-  Shield,
-  User,
-  Headphones,
-  CheckCircle,
-  XCircle,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  MoreHorizontal,
-  X,
-  XOctagon,
-  Users as UsersIcon
-} from 'lucide-react';
+import { AlertCircle, Search, Plus, Edit2, Trash2, Mail, Shield, CheckCircle, XCircle, ChevronLeft, ChevronRight, X, Users as UsersIcon, Eye, EyeOff, Lock, UserPlus } from 'lucide-react';
 import { userService } from '../services/users.js';
+import { authService } from '../services/auth.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { UserRole } from '../constants/sections';
-import { authService } from '../services/auth.js';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { buildRegisterPayload, buildUserUpdatePayload, normalizeUsersFromApi, mapRoleToApi } from '../services/roleMapper.js';
 
-const roleLabels = {
-  [UserRole.ADMIN]: 'Admin',
-  [UserRole.MANAGER]: 'Manager',
-  [UserRole.USER]: 'User',
-  [UserRole.ACTOR]: 'Actor',
-};
+const roleLabels = { [UserRole.ADMIN]:'Admin', [UserRole.MANAGER]:'Manager', [UserRole.USER]:'Viewer', [UserRole.ACTOR]:'Actor' };
+const roleBadge  = { [UserRole.ADMIN]:'b-accent', [UserRole.MANAGER]:'b-yellow', [UserRole.USER]:'b-blue', [UserRole.ACTOR]:'b-purple' };
+const roleFilters = ['All','Admin','Manager','User','Actor'];
 
-const roleFilters = ['All', 'Admin', 'Manager', 'User', 'Actor'];
-const statusFilters = ['All', 'Active', 'Inactive'];
+const emptyRegForm = { first_name:'', last_name:'', email:'', phone_number:'', password:'', confirm_password:'', role: UserRole.USER, age:'' };
+const emptyEditForm = { first_name:'', last_name:'', phone_number:'', age:'', role: UserRole.USER };
 
 export function UsersSection() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isVisible, setIsVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [pagination, setPagination] = useState({ page:1, total:0, total_pages:1 });
+  const [q, setQ] = useState('');
+  const [selRole, setSelRole] = useState('All');
+  const [page, setPage] = useState(1);
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone_number: '',
-    password: '',
-    role: UserRole.USER,
-    age: '',
-    language_preferences: [],
-    regions: []
-  });
-  const itemsPerPage = 6;
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+  // Register modal (admin-only, calls /auth/register)
+  const [showRegister, setShowRegister] = useState(false);
+  const [regForm, setRegForm] = useState(emptyRegForm);
+  const [showPw, setShowPw] = useState(false);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState(null);
+  const [regSuccess, setRegSuccess] = useState('');
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  // Edit modal
+  const [showEdit, setShowEdit] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState(null);
 
-  useEffect(() => {
-    let filtered = users;
+  const PER = 10;
+  const canManage = currentUser?.role === UserRole.ADMIN;
 
-    if (searchQuery) {
-      filtered = filtered.filter(user =>
-        `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (selectedRole !== 'All') {
-      const roleKey = Object.keys(UserRole).find(key => UserRole[key] === selectedRole.toLowerCase());
-      filtered = filtered.filter(user => user.role === selectedRole.toLowerCase());
-    }
-
-    if (selectedStatus !== 'All') {
-      filtered = filtered.filter(user => 
-        selectedStatus === 'Active' ? user.is_active : !user.is_active
-      );
-    }
-
-    setFilteredUsers(filtered);
-    setCurrentPage(1);
-  }, [searchQuery, selectedRole, selectedStatus, users]);
+  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  useEffect(() => { fetchUsers(); }, [page, q, selRole]);
 
   const fetchUsers = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await userService.getAllUsers();
-      
-      if (response.success) {
-        setUsers(response.data.users || response.data || []);
+      setLoading(true); setError(null);
+      const params = { page, limit: PER };
+      if (q) params.search = q;
+      if (selRole !== 'All') params.role = mapRoleToApi(selRole.toLowerCase());
+      const r = await userService.getAllUsers(params);
+      if (r.success) {
+        const raw = r.data?.users || r.data || [];
+        setUsers(normalizeUsersFromApi(raw));
+        setPagination(r.data?.pagination || { page:1, total: raw.length, total_pages:1 });
       }
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch(e) { setError(e.message); }
+    finally { setLoading(false); }
   };
 
-  const handleCreateUser = async (e) => {
+  // Register
+  const openRegister = () => { setRegForm(emptyRegForm); setRegError(null); setRegSuccess(''); setShowRegister(true); };
+  const closeRegister = () => { setShowRegister(false); setRegError(null); setRegSuccess(''); };
+  const setReg = (k, v) => setRegForm(p => ({...p,[k]:v}));
+
+  const handleRegister = async (e) => {
     e.preventDefault();
-    
+    if (regForm.password !== regForm.confirm_password) { setRegError('Passwords do not match'); return; }
     try {
-      setIsLoading(true);
-      const response = await authService.register(formData);
-      
-      if (response.success) {
-        setShowCreateModal(false);
-        setFormData({
-          first_name: '',
-          last_name: '',
-          email: '',
-          phone_number: '',
-          password: '',
-          role: UserRole.USER,
-          age: '',
-          language_preferences: [],
-          regions: []
-        });
-        await fetchUsers();
+      setRegLoading(true); setRegError(null);
+      const payload = buildRegisterPayload(regForm);
+      const r = await authService.register(payload);
+      if (r.success) {
+        setRegSuccess(`User "${regForm.first_name} ${regForm.last_name}" registered successfully!`);
+        setTimeout(() => { closeRegister(); fetchUsers(); }, 1800);
       }
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch(e) { setRegError(e.message || 'Registration failed'); }
+    finally { setRegLoading(false); }
   };
 
-  const handleUpdateUser = async (e) => {
+  // Edit
+  const openEdit = (u) => {
+    setEditTarget(u);
+    setEditForm({ first_name:u.first_name||'', last_name:u.last_name||'', phone_number:u.phone_number||'', age:u.age||'', role:u.role||UserRole.USER });
+    setEditError(null);
+    setShowEdit(true);
+  };
+  const closeEdit = () => { setShowEdit(false); setEditTarget(null); setEditError(null); };
+  const setEd = (k, v) => setEditForm(p => ({...p,[k]:v}));
+
+  const handleEdit = async (e) => {
     e.preventDefault();
-    
     try {
-      setIsLoading(true);
-      const response = await userService.updateUser(editingUser.id, formData);
-      
-      if (response.success) {
-        setEditingUser(null);
-        setFormData({
-          first_name: '',
-          last_name: '',
-          email: '',
-          phone_number: '',
-          password: '',
-          role: UserRole.USER,
-          age: '',
-          language_preferences: [],
-          regions: []
-        });
-        await fetchUsers();
-      }
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
+      setEditLoading(true); setEditError(null);
+      const payload = buildUserUpdatePayload(editForm);
+      const r = await userService.updateUser(editTarget.id, payload);
+      if (r.success) { closeEdit(); fetchUsers(); }
+    } catch(e) { setEditError(e.message || 'Update failed'); }
+    finally { setEditLoading(false); }
   };
 
-  const handleDeactivateUser = async (userId) => {
-    if (!confirm('Are you sure you want to deactivate this user?')) return;
-    
+  const handleDeactivate = async (id) => {
+    if (!confirm('Deactivate this user? They will no longer be able to log in.')) return;
     try {
-      const response = await userService.deactivateUser(userId);
-      if (response.success) {
-        await fetchUsers();
-      }
-    } catch (error) {
-      setError(error.message);
-    }
+      const r = await userService.deactivateUser(id);
+      if (r.success) fetchUsers();
+    } catch(e) { setError(e.message); }
   };
 
-  const openEditModal = (user) => {
-    setEditingUser(user);
-    setFormData({
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      email: user.email || '',
-      phone_number: user.phone_number || '',
-      password: '',
-      role: user.role || UserRole.USER,
-      age: user.age || '',
-      language_preferences: user.language_preferences || [],
-      regions: user.regions || []
-    });
+  const initials = u => `${u.first_name?.[0]||''}${u.last_name?.[0]||''}`.toUpperCase() || '?';
+
+  // Search debounce
+  const [searchTimer, setSearchTimer] = useState(null);
+  const handleSearch = (val) => {
+    if (searchTimer) clearTimeout(searchTimer);
+    setSearchTimer(setTimeout(() => { setQ(val); setPage(1); }, 400));
   };
-
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case UserRole.ADMIN: return <Shield size={16} />;
-      case UserRole.MANAGER: return <UsersIcon size={16} />;
-      case UserRole.ACTOR: return <Headphones size={16} />;
-      default: return <User size={16} />;
-    }
-  };
-
-  const getStatusBadge = (isActive) => {
-    return isActive ? (
-      <span className="status-badge active">
-        <CheckCircle size={12} />
-        Active
-      </span>
-    ) : (
-      <span className="status-badge inactive">
-        <XCircle size={12} />
-        Inactive
-      </span>
-    );
-  };
-
-  const canCreateUsers = currentUser?.role === UserRole.ADMIN;
-  const canDeactivateUsers = currentUser?.role === UserRole.ADMIN;
 
   return (
-    <div className={`users-section ${isVisible ? 'visible' : ''}`}>
-      <div className="users-container">
-        {/* Header */}
-        <div className="users-header">
-          <div>
-            <h1>Users Management</h1>
-            <p>Manage platform users, roles, and permissions.</p>
+    <div className={`page ${visible?'visible':''}`}>
+      <div className="page-inner">
+        <div className="ph">
+          <div className="ph-left"><h1>Users</h1><p>{pagination.total} total accounts</p></div>
+          <div className="ph-right">
+            {canManage && (
+              <button className="btn btn-primary" onClick={openRegister}>
+                <UserPlus size={15}/>Register New User
+              </button>
+            )}
           </div>
-          {canCreateUsers && (
-            <button 
-              className="btn btn-primary"
-              onClick={() => setShowCreateModal(true)}
-            >
-              <Plus size={16} />
-              Add User
-            </button>
-          )}
+        </div>
+
+        {/* Stats */}
+        <div className="stats-row">
+          {[
+            {label:'Total Users', value:pagination.total, icon:UsersIcon},
+            {label:'Active',      value:users.filter(u=>u.is_active).length, icon:CheckCircle},
+            {label:'Admins',      value:users.filter(u=>u.role===UserRole.ADMIN).length, icon:Shield},
+            {label:'Inactive',    value:users.filter(u=>!u.is_active).length, icon:XCircle},
+          ].map(({label,value,icon:Icon},i) => (
+            <div key={i} className="sc">
+              <div className="sc-icon"><Icon size={20}/></div>
+              <div><div className="sc-label">{label}</div><div className="sc-value">{value}</div></div>
+            </div>
+          ))}
         </div>
 
         {/* Filters */}
-        <div className="filters-bar">
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              className="input"
-              placeholder="Search users by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        <div className="fbar">
+          <div className="fsearch" style={{flex:1}}>
+            <Search size={15} style={{color:'rgba(255,255,255,.30)',flexShrink:0}}/>
+            <input placeholder="Search by name or email..." onChange={e => handleSearch(e.target.value)}/>
           </div>
-
-          <div className="filter-group">
-            <Filter className="filter-icon" />
-            <select 
-              className="filter-select"
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-            >
-              {roleFilters.map(role => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <Filter className="filter-icon" />
-            <select 
-              className="filter-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              {statusFilters.map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </div>
+          <select className="fselect" value={selRole} onChange={e => { setSelRole(e.target.value); setPage(1); }}>
+            {roleFilters.map(r => <option key={r}>{r}</option>)}
+          </select>
         </div>
 
-        {/* Error Display */}
         {error && (
-          <div className="error-message">
-            <AlertCircle size={16} />
-            {error}
+          <div style={{display:'flex',alignItems:'center',gap:8,padding:'11px 14px',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.18)',borderRadius:10,fontSize:13,color:'#fca5a5',marginBottom:12}}>
+            <AlertCircle size={14}/>{error}
           </div>
         )}
 
-        {/* Users List */}
-        {isLoading ? (
-          <div className="loading-state">
-            <div className="spinner" />
-            <p>Loading users...</p>
-          </div>
-        ) : (
-          <div className="users-list">
-            {paginatedUsers.map((user) => (
-              <div key={user.id} className="user-card">
-                <div className="user-avatar">
-                  <img 
-                    src={`https://ui-avatars.com/api/?name=${user.first_name}+${user.last_name}&background=800020&color=fff`}
-                    alt={`${user.first_name} ${user.last_name}`}
-                  />
-                </div>
-
-                <div className="user-info">
-                  <div className="user-name">
-                    {user.first_name} {user.last_name}
-                  </div>
-                  <div className="user-email">{user.email}</div>
-                </div>
-
-                <div className="user-role">
-                  {getRoleIcon(user.role)}
-                  {roleLabels[user.role] || user.role}
-                </div>
-
-                <div className="user-status">
-                  {getStatusBadge(user.is_active)}
-                </div>
-
-                <div className="user-meta">
-                  <div className="user-phone">{user.phone_number}</div>
-                  <div className="user-age">Age: {user.age}</div>
-                </div>
-
-                {(canCreateUsers || canDeactivateUsers) && (
-                  <div className="user-actions">
-                    {canCreateUsers && (
-                      <button
-                        className="btn-icon"
-                        onClick={() => openEditModal(user)}
-                        title="Edit user"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                    )}
-                    {canDeactivateUsers && (
-                      <button
-                        className="btn-icon btn-danger"
-                        onClick={() => handleDeactivateUser(user.id)}
-                        title="Deactivate user"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {paginatedUsers.length === 0 && (
-              <div className="empty-state">
-                <UsersIcon size={48} />
-                <h3>No users found</h3>
-                <p>Try adjusting your search or filter criteria.</p>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Table */}
+        <div className="tbl-wrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>User</th><th>Role</th><th>Status</th><th>Phone</th><th>Age</th>
+                {canManage && <th style={{textAlign:'right'}}>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6}><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,padding:'32px',color:'rgba(255,255,255,.35)'}}><div className="spin"/>Loading users…</div></td></tr>
+              ) : users.length === 0 ? (
+                <tr><td colSpan={6}><div className="empty"><UsersIcon size={32}/><p>No users found</p></div></td></tr>
+              ) : users.map(u => (
+                <tr key={u.id}>
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:10}}>
+                      <div className="avatar">{initials(u)}</div>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:600,color:'#f5f5f5'}}>{u.first_name} {u.last_name}</div>
+                        <div style={{fontSize:12,color:'rgba(255,255,255,.38)',display:'flex',alignItems:'center',gap:4}}><Mail size={11}/>{u.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span className={`badge ${roleBadge[u.role]||'b-gray'}`}>{roleLabels[u.role]||u.role}</span></td>
+                  <td><span className={`badge ${u.is_active?'b-green':'b-gray'}`}>{u.is_active?'Active':'Inactive'}</span></td>
+                  <td style={{color:'rgba(255,255,255,.55)',fontSize:13}}>{u.phone_number||'—'}</td>
+                  <td style={{color:'rgba(255,255,255,.55)',fontSize:13}}>{u.age||'—'}</td>
+                  {canManage && (
+                    <td>
+                      <div style={{display:'flex',justifyContent:'flex-end',gap:6}}>
+                        <button className="btn btn-ghost btn-icon" onClick={() => openEdit(u)} title="Edit"><Edit2 size={14}/></button>
+                        <button className="btn btn-danger btn-icon" onClick={() => handleDeactivate(u.id)} title="Deactivate"><Trash2 size={14}/></button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button
-              className="btn btn-secondary"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft size={16} />
-              Previous
-            </button>
-            
-            <span className="page-info">
-              Page {currentPage} of {totalPages}
-            </span>
-            
-            <button
-              className="btn btn-secondary"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight size={16} />
-            </button>
+        {pagination.total_pages > 1 && (
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:16}}>
+            <span className="pgn-info">Page {page} of {pagination.total_pages} ({pagination.total} users)</span>
+            <div className="pgn">
+              <button className="btn btn-secondary btn-sm" disabled={page===1} onClick={()=>setPage(p=>p-1)}><ChevronLeft size={14}/></button>
+              <button className="btn btn-secondary btn-sm" disabled={page===pagination.total_pages} onClick={()=>setPage(p=>p+1)}><ChevronRight size={14}/></button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Create/Edit User Modal */}
-      {(showCreateModal || editingUser) && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>{editingUser ? 'Edit User' : 'Create New User'}</h2>
-              <button
-                className="btn-icon"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setEditingUser(null);
-                  setError(null);
-                }}
-              >
-                <X size={20} />
-              </button>
+      {/* REGISTER MODAL */}
+      {showRegister && (
+        <div className="modal-bg" onClick={e => e.target===e.currentTarget && closeRegister()}>
+          <div className="modal-box" style={{maxWidth:520}}>
+            <div className="modal-hdr">
+              <h3 style={{display:'flex',alignItems:'center',gap:8}}><UserPlus size={18}/>Register New User</h3>
+              <button className="modal-close" onClick={closeRegister}><X size={15}/></button>
             </div>
-
-            <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser}>
-              <div className="form-grid">
-                <div className="form-field">
-                  <label>First Name</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={formData.first_name}
-                    onChange={(e) => setFormData({...formData, first_name: e.target.value})}
-                    required
-                  />
+            {regSuccess ? (
+              <div style={{padding:'28px 0',textAlign:'center'}}>
+                <CheckCircle size={40} style={{color:'#4ade80',margin:'0 auto 14px'}}/>
+                <div style={{fontSize:15,fontWeight:700,color:'#f5f5f5'}}>{regSuccess}</div>
+              </div>
+            ) : (
+              <form onSubmit={handleRegister}>
+                <div className="form-grid-2" style={{marginBottom:14}}>
+                  <div className="fg"><label className="lbl">First Name *</label><input className="inp" value={regForm.first_name} onChange={e=>setReg('first_name',e.target.value)} required/></div>
+                  <div className="fg"><label className="lbl">Last Name *</label><input className="inp" value={regForm.last_name} onChange={e=>setReg('last_name',e.target.value)} required/></div>
                 </div>
-
-                <div className="form-field">
-                  <label>Last Name</label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={formData.last_name}
-                    onChange={(e) => setFormData({...formData, last_name: e.target.value})}
-                    required
-                  />
+                <div className="fg" style={{marginBottom:14}}>
+                  <label className="lbl">Email *</label>
+                  <input type="email" className="inp" value={regForm.email} onChange={e=>setReg('email',e.target.value)} required/>
                 </div>
-
-                <div className="form-field">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    className="input"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    required
-                    disabled={Boolean(editingUser)}
-                  />
+                <div className="form-grid-2" style={{marginBottom:14}}>
+                  <div className="fg"><label className="lbl">Phone</label><input className="inp" value={regForm.phone_number} onChange={e=>setReg('phone_number',e.target.value)} placeholder="+91 98765..."/></div>
+                  <div className="fg"><label className="lbl">Age</label><input type="number" className="inp" min="13" max="120" value={regForm.age} onChange={e=>setReg('age',e.target.value)}/></div>
                 </div>
-
-                <div className="form-field">
-                  <label>Phone Number</label>
-                  <input
-                    type="tel"
-                    className="input"
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
-                    required
-                  />
-                </div>
-
-                {!editingUser && (
-                  <div className="form-field">
-                    <label>Password</label>
-                    <input
-                      type="password"
-                      className="input"
-                      value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
-                      required
-                    />
-                  </div>
-                )}
-
-                <div className="form-field">
-                  <label>Age</label>
-                  <input
-                    type="number"
-                    className="input"
-                    value={formData.age}
-                    onChange={(e) => setFormData({...formData, age: e.target.value})}
-                    required
-                  />
-                </div>
-
-                <div className="form-field">
-                  <label>Role</label>
-                  <select
-                    className="input"
-                    value={formData.role}
-                    onChange={(e) => setFormData({...formData, role: e.target.value})}
-                    required
-                  >
-                    {Object.values(UserRole).map(role => (
-                      <option key={role} value={role}>
-                        {roleLabels[role]}
-                      </option>
-                    ))}
+                <div className="fg" style={{marginBottom:14}}>
+                  <label className="lbl">Role *</label>
+                  <select className="inp fselect" value={regForm.role} onChange={e=>setReg('role',e.target.value)}>
+                    {Object.values(UserRole).map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
                   </select>
                 </div>
-              </div>
+                <div className="form-grid-2" style={{marginBottom:14}}>
+                  <div className="fg">
+                    <label className="lbl">Password *</label>
+                    <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+                      <Lock size={14} style={{position:'absolute',left:12,color:'rgba(255,255,255,.25)',pointerEvents:'none'}}/>
+                      <input type={showPw?'text':'password'} className="inp" style={{paddingLeft:36,paddingRight:36}} value={regForm.password} onChange={e=>setReg('password',e.target.value)} required minLength={6}/>
+                      <button type="button" onClick={()=>setShowPw(o=>!o)} style={{position:'absolute',right:10,background:'none',border:'none',color:'rgba(255,255,255,.28)',cursor:'pointer',padding:4}}>
+                        {showPw ? <EyeOff size={14}/> : <Eye size={14}/>}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="fg">
+                    <label className="lbl">Confirm Password *</label>
+                    <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+                      <Lock size={14} style={{position:'absolute',left:12,color:'rgba(255,255,255,.25)',pointerEvents:'none'}}/>
+                      <input type={showPw?'text':'password'} className="inp" style={{paddingLeft:36}} value={regForm.confirm_password} onChange={e=>setReg('confirm_password',e.target.value)} required/>
+                    </div>
+                  </div>
+                </div>
+                {regError && (
+                  <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',background:'rgba(239,68,68,.07)',border:'1px solid rgba(239,68,68,.15)',borderRadius:9,color:'#fca5a5',fontSize:13,marginBottom:14}}>
+                    <AlertCircle size={13}/>{regError}
+                  </div>
+                )}
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={closeRegister}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={regLoading}>
+                    {regLoading ? <><span className="spin-sm"/>Registering…</> : <><UserPlus size={14}/>Register User</>}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setEditingUser(null);
-                    setError(null);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isLoading}
-                >
-                  {isLoading ? <div className="spinner" /> : (editingUser ? 'Update' : 'Create')}
+      {/* EDIT MODAL */}
+      {showEdit && editTarget && (
+        <div className="modal-bg" onClick={e => e.target===e.currentTarget && closeEdit()}>
+          <div className="modal-box">
+            <div className="modal-hdr">
+              <h3>Edit User — {editTarget.first_name} {editTarget.last_name}</h3>
+              <button className="modal-close" onClick={closeEdit}><X size={15}/></button>
+            </div>
+            <form onSubmit={handleEdit}>
+              <div className="form-grid-2" style={{marginBottom:14}}>
+                <div className="fg"><label className="lbl">First Name</label><input className="inp" value={editForm.first_name} onChange={e=>setEd('first_name',e.target.value)} required/></div>
+                <div className="fg"><label className="lbl">Last Name</label><input className="inp" value={editForm.last_name} onChange={e=>setEd('last_name',e.target.value)} required/></div>
+              </div>
+              <div className="form-grid-2" style={{marginBottom:14}}>
+                <div className="fg"><label className="lbl">Phone</label><input className="inp" value={editForm.phone_number} onChange={e=>setEd('phone_number',e.target.value)}/></div>
+                <div className="fg"><label className="lbl">Age</label><input type="number" className="inp" value={editForm.age} onChange={e=>setEd('age',e.target.value)}/></div>
+              </div>
+              <div className="fg" style={{marginBottom:14}}>
+                <label className="lbl">Role</label>
+                <select className="inp fselect" value={editForm.role} onChange={e=>setEd('role',e.target.value)}>
+                  {Object.values(UserRole).map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
+                </select>
+              </div>
+              {editError && (
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',background:'rgba(239,68,68,.07)',border:'1px solid rgba(239,68,68,.15)',borderRadius:9,color:'#fca5a5',fontSize:13,marginBottom:14}}>
+                  <AlertCircle size={13}/>{editError}
+                </div>
+              )}
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={closeEdit}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={editLoading}>
+                  {editLoading ? <><span className="spin-sm"/>Saving…</> : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -530,419 +330,9 @@ export function UsersSection() {
       )}
 
       <style>{`
-        .users-section {
-          min-height: 100vh;
-          padding: 28px 0 56px;
-          background: var(--bg-primary);
-          opacity: 0;
-          transform: translateY(20px);
-          transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-
-        .users-section.visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        .users-container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 24px;
-        }
-
-        .users-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 26px;
-          padding: 26px 30px;
-          border-radius: 28px;
-          border: 1px solid var(--border);
-          background: var(--panel-glass-hero);
-          backdrop-filter: blur(26px);
-          box-shadow: var(--shadow-soft);
-        }
-
-        .users-header h1 {
-          font-size: 36px;
-          color: var(--text-primary);
-          margin-bottom: 8px;
-        }
-
-        .users-header p {
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .filters-bar {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 30px;
-          flex-wrap: wrap;
-          padding: 18px;
-          border-radius: 24px;
-          border: 1px solid var(--border);
-          background: var(--panel-glass-soft);
-          backdrop-filter: blur(24px);
-        }
-
-        .search-box {
-          position: relative;
-          flex: 1;
-          min-width: 280px;
-        }
-
-        .search-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 18px;
-          height: 18px;
-          color: var(--text-secondary);
-        }
-
-        .search-box .input {
-          padding-left: 44px;
-        }
-
-        .filter-group {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .filter-icon {
-          width: 18px;
-          height: 18px;
-          color: var(--text-secondary);
-        }
-
-        .filter-select {
-          padding: 10px 16px;
-          background: var(--bg-secondary);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          color: var(--text-primary);
-          font-size: 14px;
-          cursor: pointer;
-          outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .filter-select:focus {
-          border-color: var(--accent);
-        }
-
-        .error-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 16px;
-          margin-bottom: 20px;
-          border-radius: 12px;
-          background: rgba(226, 79, 99, 0.1);
-          border: 1px solid rgba(226, 79, 99, 0.3);
-          color: #ffb8c2;
-          font-size: 14px;
-        }
-
-        .loading-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 60px;
-          color: var(--text-secondary);
-        }
-
-        .spinner {
-          width: 32px;
-          height: 32px;
-          border: 3px solid rgba(255, 255, 255, 0.1);
-          border-top-color: var(--accent);
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-          margin-bottom: 16px;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        .users-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .user-card {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          padding: 18px 20px;
-          background: var(--panel-glass);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          transition: all 0.3s ease;
-          box-shadow: var(--shadow-soft);
-          backdrop-filter: blur(24px);
-        }
-
-        .user-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-        }
-
-        .user-avatar {
-          width: 48px;
-          height: 48px;
-          border-radius: 16px;
-          overflow: hidden;
-          border: 2px solid var(--border);
-        }
-
-        .user-avatar img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .user-info {
-          flex: 1;
-        }
-
-        .user-name {
-          font-weight: 600;
-          color: var(--text-primary);
-          margin-bottom: 4px;
-        }
-
-        .user-email {
-          font-size: 14px;
-          color: var(--text-secondary);
-        }
-
-        .user-role {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--text-secondary);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .status-badge {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 10px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .status-badge.active {
-          background: rgba(34, 197, 94, 0.1);
-          color: #22c55e;
-        }
-
-        .status-badge.inactive {
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
-        }
-
-        .user-meta {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          font-size: 13px;
-          color: var(--text-secondary);
-        }
-
-        .user-actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .btn-icon {
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          color: var(--text-secondary);
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-icon:hover {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--text-primary);
-        }
-
-        .btn-icon.btn-danger:hover {
-          background: rgba(239, 68, 68, 0.1);
-          color: #ef4444;
-        }
-
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 80px 20px;
-          color: var(--text-secondary);
-        }
-
-        .empty-state h3 {
-          margin: 16px 0 8px;
-          color: var(--text-primary);
-        }
-
-        .pagination {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 16px;
-          margin-top: 32px;
-          padding: 20px;
-        }
-
-        .page-info {
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(7, 2, 3, 0.7);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .modal {
-          background: rgba(19, 23, 30, 0.98);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          padding: 32px;
-          max-width: 600px;
-          width: 90%;
-          max-height: 90vh;
-          overflow-y: auto;
-          box-shadow: var(--shadow-soft);
-        }
-
-        .modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 24px;
-        }
-
-        .modal-header h2 {
-          color: var(--text-primary);
-          font-size: 24px;
-        }
-
-        .form-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
-          margin-bottom: 24px;
-        }
-
-        .form-field {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .form-field label {
-          color: var(--text-primary);
-          font-size: 14px;
-          font-weight: 500;
-        }
-
-        .form-field .input {
-          padding: 12px 16px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          color: var(--text-primary);
-          font-size: 14px;
-          transition: all 0.2s ease;
-        }
-
-        .form-field .input:focus {
-          outline: none;
-          border-color: var(--accent);
-          background: rgba(255, 255, 255, 0.08);
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 20px;
-          border: none;
-          border-radius: 12px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .btn-primary {
-          background: var(--accent);
-          color: white;
-        }
-
-        .btn-primary:hover {
-          background: var(--accent-hover);
-        }
-
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.1);
-          color: var(--text-primary);
-          border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.15);
-        }
-
-        @media (max-width: 768px) {
-          .form-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .filters-bar {
-            flex-direction: column;
-            align-items: stretch;
-          }
-          
-          .search-box {
-            min-width: auto;
-          }
-        }
+        ${PAGE_STYLES}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .spin-sm{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.20);border-top-color:#fff;animation:spin .65s linear infinite;flex-shrink:0}
       `}</style>
     </div>
   );

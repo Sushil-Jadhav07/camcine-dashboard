@@ -1,168 +1,135 @@
-import {
-  ArrowUpRight,
-  BarChart3,
-  Clock3,
-  DollarSign,
-  Film,
-  Play,
-  Search,
-  Ticket,
-  Users,
-} from 'lucide-react';
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useEffect, useState } from 'react';
+import { Film, Users, DollarSign, Ticket, TrendingUp, TrendingDown, Plus, UserPlus, BarChart3, Play, ArrowRight, Eye, Bell, RefreshCw } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { PAGE_STYLES } from '../lib/pageStyles.js';
 
-const metricCards = [
-  { label: 'Total Pages Viewed', value: '12.4K', delta: '+0.9%', icon: Users },
-  { label: 'Avg. Time on Page', value: '2:45 min', delta: '+0.8%', icon: Clock3 },
-  { label: 'Top Content Type', value: 'Movies', delta: '+0.4%', icon: Film },
-  { label: 'Open Tickets', value: '127', delta: '-0.3%', icon: Ticket },
+const revenueData = [
+  {month:'Jan',revenue:45000},{month:'Feb',revenue:52000},{month:'Mar',revenue:48000},
+  {month:'Apr',revenue:61000},{month:'May',revenue:58000},{month:'Jun',revenue:72000},
+  {month:'Jul',revenue:68000},{month:'Aug',revenue:81000},{month:'Sep',revenue:77000},
+  {month:'Oct',revenue:89400},
 ];
-
-const chartData = [
-  { month: 'Jan', value: 20 },
-  { month: 'Feb', value: 31 },
-  { month: 'Mar', value: 24 },
-  { month: 'Apr', value: 16 },
-  { month: 'May', value: 29 },
-  { month: 'Jun', value: 23 },
-  { month: 'Jul', value: 34 },
-  { month: 'Aug', value: 36 },
-  { month: 'Sep', value: 29 },
-  { month: 'Oct', value: 27 },
-  { month: 'Nov', value: 32 },
-  { month: 'Dec', value: 35 },
+const activity = [
+  {id:1,action:'New movie added',     item:'The Midnight Archive',          time:'2m ago',  type:'content'},
+  {id:2,action:'New subscription',    item:'Premium Plan — john@email.com', time:'15m ago', type:'subscription'},
+  {id:3,action:'Payment received',    item:'$19.99 from maria@email.com',   time:'32m ago', type:'payment'},
+  {id:4,action:'Series updated',      item:'Cyber Chronicles S2',           time:'1h ago',  type:'content'},
+  {id:5,action:'Support resolved',    item:'Ticket #2847',                  time:'2h ago',  type:'support'},
 ];
-
-const quickStats = [
-  ['Monthly Revenue', '$89.4K'],
-  ['Active Subscribers', '42.3K'],
-  ['Content Library', '1,248'],
+const stats = [
+  {label:'Total Titles',    value:'1,248',  change:'+12%',   trend:'up',   icon:Film},
+  {label:'Active Users',    value:'42.3K',  change:'+8.5%',  trend:'up',   icon:Users},
+  {label:'Monthly Revenue', value:'$89.4K', change:'+15.2%', trend:'up',   icon:DollarSign},
+  {label:'Open Tickets',    value:'127',    change:'-5.3%',  trend:'down', icon:Ticket},
 ];
+const activityColor = { content:'rgba(204,26,26,.12)', subscription:'rgba(59,130,246,.10)', payment:'rgba(34,197,94,.10)', support:'rgba(255,255,255,.06)' };
+const activityIconColor = { content:'#ff6b6b', subscription:'#60a5fa', payment:'#4ade80', support:'rgba(255,255,255,.40)' };
 
-export function DashboardSection({ onNavigate }) {
+const CustomTooltip = ({active,payload,label}) => active&&payload?.length ? (
+  <div style={{background:'#1a1a1a',border:'1px solid rgba(255,255,255,.10)',borderRadius:10,padding:'10px 14px',fontSize:12}}>
+    <div style={{color:'rgba(255,255,255,.40)',fontSize:10,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:4}}>{label}</div>
+    <div style={{color:'#f5f5f5',fontWeight:700}}>${payload[0]?.value?.toLocaleString()}</div>
+  </div>
+) : null;
+
+export function DashboardSection({ onNavigate, userRole }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(()=>{ setTimeout(()=>setVisible(true),80); },[]);
+
   return (
-    <section className="dashboard-shell">
-      <div className="shell-container">
-        <div className="dashboard-topbar">
-          <div className="topbar-title">
-            <div className="topbar-icon">
-              <BarChart3 size={18} />
-            </div>
-            <div>
-              <h1>Dashboard</h1>
-              <p>Overview of platform performance and audience movement.</p>
-            </div>
-          </div>
-          <div className="topbar-actions">
-            <div className="topbar-search">
-              <Search size={16} />
-              <input type="text" placeholder="Search Anything" />
-            </div>
-            <button className="btn btn-primary" onClick={() => onNavigate('analytics')}>
-              <ArrowUpRight size={16} />
-              Analytics
-            </button>
+    <div className={`page ${visible?'visible':''}`}>
+      <div className="page-inner">
+        <div className="ph">
+          <div className="ph-left"><h1>Dashboard</h1><p>Platform overview — October 2024</p></div>
+          <div className="ph-right">
+            <button className="btn btn-secondary btn-sm"><RefreshCw size={13}/>Refresh</button>
+            <button className="btn btn-primary" onClick={()=>onNavigate&&onNavigate('add-title-type')}><Plus size={14}/>Add Content</button>
           </div>
         </div>
 
-        <div className="metric-grid">
-          {metricCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <article key={card.label} className="metric-card">
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <span className="metric-label">{card.label}</span>
-                    <strong className="metric-value">{card.value}</strong>
-                    <div className="metric-meta" style={{ color: 'var(--danger)', marginTop: 10 }}>{card.delta}</div>
-                  </div>
-                  <div className="topbar-icon" style={{ width: 32, height: 32, borderRadius: 10 }}>
-                    <Icon size={14} />
-                  </div>
+        {/* Stats */}
+        <div className="stats-row">
+          {stats.map(({label,value,change,trend,icon:Icon},i)=>(
+            <div key={i} className="sc">
+              <div className="sc-icon"><Icon size={20}/></div>
+              <div>
+                <div className="sc-label">{label}</div>
+                <div className="sc-value">{value}</div>
+                <div className={`sc-change ${trend}`}>
+                  {trend==='up'?<TrendingUp size={12}/>:<TrendingDown size={12}/>}
+                  <span>{change}</span>
                 </div>
-              </article>
-            );
-          })}
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="analytics-layout">
-          <div className="chart-card">
-            <div className="section-heading">
-              <div>
-                <h3>Average Time History</h3>
-                <p>Monthly trend for user engagement duration.</p>
-              </div>
+        {/* Charts row */}
+        <div style={{display:'grid',gridTemplateColumns:'3fr 2fr',gap:18}}>
+          {/* Revenue chart */}
+          <div className="card">
+            <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:20}}>
+              <div><div className="card-title">Revenue Trend</div><div className="card-sub">Monthly platform revenue</div></div>
+              <button className="btn btn-ghost btn-sm" onClick={()=>onNavigate&&onNavigate('payments')} style={{gap:4}}>View Payments<ArrowRight size={13}/></button>
             </div>
-            <div style={{ height: 320 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="dashboardAreaFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.52} />
-                      <stop offset="95%" stopColor="var(--accent-strong)" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="var(--line)" vertical={false} />
-                  <XAxis dataKey="month" stroke="var(--text-muted)" tickLine={false} axisLine={false} />
-                  <YAxis hide />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: '14px',
-                      border: '1px solid var(--line)',
-                      background: 'var(--panel-strong)',
-                      color: 'var(--text-primary)',
-                    }}
-                  />
-                  <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={3} fill="url(#dashboardAreaFill)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={revenueData} margin={{left:-20,right:5,top:5,bottom:0}}>
+                <defs>
+                  <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#cc1a1a" stopOpacity={.20}/>
+                    <stop offset="95%" stopColor="#cc1a1a" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.05)"/>
+                <XAxis dataKey="month" tick={{fill:'rgba(255,255,255,.30)',fontSize:11}} axisLine={false} tickLine={false}/>
+                <YAxis tick={{fill:'rgba(255,255,255,.30)',fontSize:11}} axisLine={false} tickLine={false}/>
+                <Tooltip content={<CustomTooltip/>}/>
+                <Area type="monotone" dataKey="revenue" stroke="#cc1a1a" strokeWidth={2.5} fill="url(#dg)" dot={false} activeDot={{r:5,fill:'#cc1a1a',stroke:'#fff',strokeWidth:2}}/>
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
 
-          <div className="chart-card">
-            <div className="section-heading">
-              <div>
-                <h3>Command Summary</h3>
-                <p>Fast operational pulse for this cycle.</p>
-              </div>
+          {/* Activity feed */}
+          <div className="card">
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18}}>
+              <div><div className="card-title">Recent Activity</div><div className="card-sub">Latest platform events</div></div>
+              <span className="badge b-accent" style={{fontSize:10}}>{activity.length} new</span>
             </div>
-            <div className="list-stack">
-              {quickStats.map(([label, value]) => (
-                <div key={label} className="list-card">
-                  <div>
-                    <strong style={{ display: 'block', marginBottom: 4 }}>{label}</strong>
-                    <span className="subtle">Updated in real time</span>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {activity.map(a=>(
+                <div key={a.id} style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                  <div style={{width:32,height:32,borderRadius:9,background:activityColor[a.type],color:activityIconColor[a.type],display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
+                    {a.type==='content'?<Film size={14}/>:a.type==='subscription'?<Users size={14}/>:a.type==='payment'?<DollarSign size={14}/>:<Bell size={14}/>}
                   </div>
-                  <strong>{value}</strong>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12.5,fontWeight:600,color:'rgba(255,255,255,.75)',marginBottom:1}}>{a.action}</div>
+                    <div style={{fontSize:11.5,color:'rgba(255,255,255,.38)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.item}</div>
+                  </div>
+                  <span style={{fontSize:10.5,color:'rgba(255,255,255,.25)',whiteSpace:'nowrap',flexShrink:0,marginTop:2}}>{a.time}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="surface-panel">
-          <div className="section-heading">
-            <div>
-              <h3>Quick Actions</h3>
-              <p>Keep the same workflows, but surface them like the reference layout.</p>
-            </div>
-          </div>
-          <div className="content-grid-3">
-            <button className="btn btn-secondary" onClick={() => onNavigate('add-title')}>
-              <Film size={16} />
-              Add New Title
-            </button>
-            <button className="btn btn-secondary" onClick={() => onNavigate('content')}>
-              <Play size={16} />
-              Open Library
-            </button>
-            <button className="btn btn-secondary" onClick={() => onNavigate('payments')}>
-              <DollarSign size={16} />
-              Review Payments
-            </button>
+        {/* Quick actions */}
+        <div className="card">
+          <div style={{marginBottom:14}}><div className="card-title">Quick Actions</div></div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            {[
+              {label:'Add Content',    nav:'add-title-type', icon:Plus},
+              {label:'Add User',       nav:'users',          icon:UserPlus},
+              {label:'View Analytics', nav:'analytics',      icon:BarChart3},
+              {label:'Content Library',nav:'content',        icon:Play},
+            ].map(({label,nav,icon:Icon})=>(
+              <button key={nav} className="btn btn-secondary" onClick={()=>onNavigate&&onNavigate(nav)}>
+                <Icon size={14}/>{label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
-    </section>
+      <style>{`${PAGE_STYLES} @media(max-width:900px){.chart-row{grid-template-columns:1fr!important}}`}</style>
+    </div>
   );
 }
