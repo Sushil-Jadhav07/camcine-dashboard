@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Download, Filter, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, DollarSign, CreditCard, ArrowUpRight, ArrowDownRight, TrendingUp, X, RefreshCw } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const mockTxns = [
   { id:'TXN-001234', date:'2024-03-15', customer:'John Smith',    email:'john@email.com',    amount:14.99, status:'completed', method:'Visa ••4242',     plan:'Standard' },
@@ -44,9 +45,12 @@ export function PaymentsSection() {
         <div className="ph">
           <div className="ph-left"><h1>Payments</h1><p>Transaction history and revenue tracking</p></div>
           <div className="ph-right">
-            <select className="fselect" value={range} onChange={e=>setRange(e.target.value)}>
-              {[['7d','Last 7 days'],['30d','Last 30 days'],['90d','Last 90 days'],['1y','This year']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-            </select>
+            <CustomSelect value={range} onChange={setRange} options={[
+              { value: '7d', label: 'Last 7 days' },
+              { value: '30d', label: 'Last 30 days' },
+              { value: '90d', label: 'Last 90 days' },
+              { value: '1y', label: 'This year' },
+            ]} />
             <button className="btn btn-secondary btn-sm"><Download size={13}/> Export</button>
           </div>
         </div>
@@ -71,9 +75,7 @@ export function PaymentsSection() {
             <input placeholder="Search transactions, customers..." value={q} onChange={e=>setQ(e.target.value)}/>
             {q && <button onClick={()=>setQ('')} style={{background:'none',border:'none',color:'rgba(255,255,255,.30)',cursor:'pointer',padding:0}}><X size={14}/></button>}
           </div>
-          <select className="fselect" value={status} onChange={e=>setStatus(e.target.value)}>
-            {statusFilters.map(s=><option key={s}>{s}</option>)}
-          </select>
+          <CustomSelect value={status} onChange={setStatus} options={statusFilters} />
         </div>
 
         <div className="tbl-wrap">

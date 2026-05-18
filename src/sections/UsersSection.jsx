@@ -6,10 +6,12 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import { UserRole } from '../constants/sections';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { buildRegisterPayload, buildUserUpdatePayload, normalizeUsersFromApi, mapRoleToApi } from '../services/roleMapper.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const roleLabels = { [UserRole.ADMIN]:'Admin', [UserRole.MANAGER]:'Manager', [UserRole.USER]:'Viewer', [UserRole.ACTOR]:'Actor' };
 const roleBadge  = { [UserRole.ADMIN]:'b-accent', [UserRole.MANAGER]:'b-yellow', [UserRole.USER]:'b-blue', [UserRole.ACTOR]:'b-purple' };
 const roleFilters = ['All','Admin','Manager','User','Actor'];
+const roleOptions = Object.values(UserRole).map(role => ({ value: role, label: roleLabels[role] || role }));
 
 const emptyRegForm = { first_name:'', last_name:'', email:'', phone_number:'', password:'', confirm_password:'', role: UserRole.USER, age:'' };
 const emptyEditForm = { first_name:'', last_name:'', phone_number:'', age:'', role: UserRole.USER };
@@ -155,9 +157,7 @@ export function UsersSection() {
             <Search size={15} style={{color:'rgba(255,255,255,.30)',flexShrink:0}}/>
             <input placeholder="Search by name or email..." onChange={e => handleSearch(e.target.value)}/>
           </div>
-          <select className="fselect" value={selRole} onChange={e => { setSelRole(e.target.value); setPage(1); }}>
-            {roleFilters.map(r => <option key={r}>{r}</option>)}
-          </select>
+          <CustomSelect value={selRole} onChange={value => { setSelRole(value); setPage(1); }} options={roleFilters} />
         </div>
 
         {error && (
@@ -250,9 +250,7 @@ export function UsersSection() {
                 </div>
                 <div className="fg" style={{marginBottom:14}}>
                   <label className="lbl">Role *</label>
-                  <select className="inp fselect" value={regForm.role} onChange={e=>setReg('role',e.target.value)}>
-                    {Object.values(UserRole).map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
-                  </select>
+                  <CustomSelect className="inp" value={regForm.role} onChange={value => setReg('role', value)} options={roleOptions} />
                 </div>
                 <div className="form-grid-2" style={{marginBottom:14}}>
                   <div className="fg">
@@ -309,9 +307,7 @@ export function UsersSection() {
               </div>
               <div className="fg" style={{marginBottom:14}}>
                 <label className="lbl">Role</label>
-                <select className="inp fselect" value={editForm.role} onChange={e=>setEd('role',e.target.value)}>
-                  {Object.values(UserRole).map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
-                </select>
+                <CustomSelect className="inp" value={editForm.role} onChange={value => setEd('role', value)} options={roleOptions} />
               </div>
               {editError && (
                 <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',background:'rgba(239,68,68,.07)',border:'1px solid rgba(239,68,68,.15)',borderRadius:9,color:'#fca5a5',fontSize:13,marginBottom:14}}>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Upload, X, Save, ArrowLeft, Calendar, Clock, DollarSign, Check, AlertCircle, Film, Tv, Music } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const genres = ['Action','Comedy','Drama','Horror','Sci-Fi','Thriller','Romance','Documentary','Animation','Music','Sports','News','Crime','Fantasy','Adventure'];
 const languages = ['English','Hindi','Tamil','Telugu','Bengali','Marathi','Kannada','Gujarati','Punjabi','Malayalam'];
@@ -33,6 +34,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadPhase, setUploadPhase] = useState('');
+  const [uploadProgress, setUploadProgress] = useState({});
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
   const [createdId, setCreatedId] = useState(null);
@@ -49,10 +51,8 @@ export function AddTitleSection({ onNavigate, titleType }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); setError(null);
+    setLoading(true); setError(null); setUploadProgress({});
     try {
-      // 1. Create content
-      setUploadPhase('Creating content...');
       const payload = {
         title: form.title.trim(),
         type: apiType,
@@ -69,31 +69,55 @@ export function AddTitleSection({ onNavigate, titleType }) {
       // Remove undefined fields
       Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
-      const r = await contentService.createContent(payload);
+      const uploadedMedia = {};
+
+      // 1. Upload selected files first. The content record is created only after uploads complete.
+      if (posterFile) {
+        setUploadPhase('Uploading poster...');
+        const upload = await contentService.uploadImage(
+          posterFile,
+          null,
+          apiType,
+          progress => setUploadProgress(p => ({ ...p, poster: progress }))
+        );
+        if (upload.url) {
+          uploadedMedia.poster_url = upload.url;
+          uploadedMedia.thumbnail_url = upload.url;
+        }
+      }
+
+      if (trailerFile) {
+        setUploadPhase('Uploading trailer...');
+        const upload = await contentService.uploadTrailer(
+          trailerFile,
+          null,
+          apiType,
+          progress => setUploadProgress(p => ({ ...p, trailer: progress }))
+        );
+        if (upload.url) uploadedMedia.trailer_url = upload.url;
+      }
+
+      // Upload video if provided. Shows use episode uploads after the series is created.
+      if (videoFile && !isShow && !isSong) {
+        setUploadPhase('Uploading video...');
+        const upload = await contentService.uploadVideo(
+          videoFile,
+          null,
+          apiType,
+          progress => setUploadProgress(p => ({ ...p, video: progress }))
+        );
+        if (upload.url) uploadedMedia.video_url = upload.url;
+      }
+
+      // Create content only after all selected uploads are complete.
+      setUploadPhase('Creating content...');
+      const r = await contentService.createContent({ ...payload, ...uploadedMedia });
       if (!r.success && !r.data) throw new Error('Failed to create content');
       const contentId = r.data?.content?.id || r.data?.content?._id || r.data?.id || r.data?._id;
       if (!contentId) throw new Error('Content was created but the API did not return an ID.');
       setCreatedId(contentId);
 
-      // 2. Upload poster if provided
-      if (posterFile && contentId) {
-        setUploadPhase('Uploading poster...');
-        await contentService.uploadImage(posterFile, contentId, 'content', 'poster', true);
-      }
-
-      // 3. Upload trailer if provided
-      if (trailerFile && contentId) {
-        setUploadPhase('Uploading trailer...');
-        await contentService.uploadTrailer(trailerFile, contentId, true);
-      }
-
-      // 4. Upload video if provided (not for shows — episodes handle that)
-      if (videoFile && contentId && !isShow) {
-        setUploadPhase('Uploading video...');
-        await contentService.uploadVideo(videoFile, contentId, 'content', true);
-      }
-
-      // 5. Publish immediately
+      // Publish immediately.
       if (contentId) {
         setUploadPhase('Publishing...');
         await contentService.updateStatus(contentId, 'published');
@@ -134,7 +158,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
               <Check size={28}/>
             </div>
             <div style={{fontSize:20,fontWeight:800,color:'#f5f5f5'}}>{typeLabel} Added!</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,.40)'}}>Redirecting to Content Library…</div>
+            <div style={{fontSize:13,color:'rgba(255,255,255,.40)'}}>Redirecting to Content Library...</div>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -155,15 +179,11 @@ export function AddTitleSection({ onNavigate, titleType }) {
                   <div className="form-grid-3">
                     <div className="fg">
                       <label className="lbl">Language</label>
-                      <select className="inp fselect" value={form.language} onChange={e => setF('language',e.target.value)}>
-                        {languages.map(l => <option key={l}>{l}</option>)}
-                      </select>
+                      <CustomSelect className="inp" value={form.language} onChange={value => setF('language', value)} options={languages} />
                     </div>
                     <div className="fg">
                       <label className="lbl">Rating</label>
-                      <select className="inp fselect" value={form.rating} onChange={e => setF('rating',e.target.value)}>
-                        {ratings.map(r => <option key={r}>{r}</option>)}
-                      </select>
+                      <CustomSelect className="inp" value={form.rating} onChange={value => setF('rating', value)} options={ratings} />
                     </div>
                     <div className="fg">
                       <label className="lbl">Release Year</label>
@@ -223,12 +243,17 @@ export function AddTitleSection({ onNavigate, titleType }) {
                   </div>
                   {!form.is_free && (
                     <div className="fg" style={{maxWidth:200}}>
-                      <label className="lbl">Price (₹)</label>
+                      <label className="lbl">Price (INR)</label>
                       <div className="inp-wrap">
                         <DollarSign size={14} className="inp-icon"/>
                         <input type="number" min="0" step="1" className="inp" value={form.price_tvod}
                           onChange={e => setF('price_tvod',e.target.value)} placeholder="49"/>
                       </div>
+                    </div>
+                  )}
+                  {isSong && (
+                    <div style={{padding:'12px 14px',background:'rgba(59,130,246,.07)',border:'1px solid rgba(59,130,246,.15)',borderRadius:10,fontSize:13,color:'rgba(255,255,255,.50)'}}>
+                      Audio and lyrics uploads are handled from the Songs section after creating the song.
                     </div>
                   )}
                 </div>
@@ -239,29 +264,39 @@ export function AddTitleSection({ onNavigate, titleType }) {
                 <div style={{marginBottom:16}}><div className="card-title">Media Files</div></div>
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
                   <FileUploadField
-                    label="Poster Image (JPG/PNG/WEBP, max 10MB)"
+                    label="Poster Image (JPG/PNG/WEBP)"
                     accept="image/jpeg,image/png,image/webp"
                     file={posterFile}
                     onFile={setPosterFile}
+                    progress={uploadProgress.poster}
                   />
-                  <FileUploadField
-                    label="Trailer (MP4/MOV/WEBM, max 500MB)"
-                    accept="video/mp4,video/quicktime,video/webm"
-                    file={trailerFile}
-                    onFile={setTrailerFile}
-                  />
-                  {!isShow && (
+                  {!isSong && (
                     <FileUploadField
-                      label={`Full Video (MP4/MKV/AVI, max 5GB)${isShow ? ' — Add episodes after creation' : ''}`}
+                      label="Trailer (MP4/MOV/WEBM)"
+                      accept="video/mp4,video/quicktime,video/webm"
+                      file={trailerFile}
+                      onFile={setTrailerFile}
+                      progress={uploadProgress.trailer}
+                    />
+                  )}
+                  {!isShow && !isSong && (
+                    <FileUploadField
+                      label={`Full Video (MP4/MKV/AVI)${isShow ? ' - Add episodes after creation' : ''}`}
                       accept="video/mp4,video/x-matroska,video/x-msvideo,video/quicktime,video/webm"
                       file={videoFile}
                       onFile={setVideoFile}
                       disabled={isShow}
+                      progress={uploadProgress.video}
                     />
                   )}
                   {isShow && (
                     <div style={{padding:'12px 14px',background:'rgba(59,130,246,.07)',border:'1px solid rgba(59,130,246,.15)',borderRadius:10,fontSize:13,color:'rgba(255,255,255,.50)'}}>
-                      ℹ️ For TV Series, add individual episodes after creating the show from the Content Library.
+                      For TV Series, add individual episodes after creating the show from the Content Library.
+                    </div>
+                  )}
+                  {isSong && (
+                    <div style={{padding:'12px 14px',background:'rgba(59,130,246,.07)',border:'1px solid rgba(59,130,246,.15)',borderRadius:10,fontSize:13,color:'rgba(255,255,255,.50)'}}>
+                      Audio and lyrics uploads are handled from the Songs section after creating the song.
                     </div>
                   )}
                 </div>
@@ -277,7 +312,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
                 <button type="button" className="btn btn-secondary" onClick={() => onNavigate && onNavigate('content')}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={loading}>
                   {loading ? (
-                    <><span className="spin-sm"/>{ uploadPhase || 'Saving…'}</>
+                    <><span className="spin-sm"/>{ uploadPhase || 'Saving...'}</>
                   ) : (
                     <><Save size={15}/>Save & Publish</>
                   )}
@@ -300,13 +335,17 @@ export function AddTitleSection({ onNavigate, titleType }) {
         .file-upload-zone:hover{border-color:rgba(204,26,26,.30);background:rgba(204,26,26,.04)}
         .file-upload-zone.has-file{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.04)}
         .file-upload-zone.disabled{opacity:.4;cursor:not-allowed}
+        .upload-progress{margin-top:8px;height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+        .upload-progress-bar{height:100%;background:#4ade80;border-radius:inherit;transition:width .2s ease}
       `}</style>
     </div>
   );
 }
 
-function FileUploadField({ label, accept, file, onFile, disabled }) {
+function FileUploadField({ label, accept, file, onFile, disabled, progress }) {
   const inputId = `fu-${Math.random().toString(36).slice(2)}`;
+  const isUploading = typeof progress === 'number' && progress < 100;
+  const isUploaded = progress === 100;
   return (
     <div className="fg">
       <label className="lbl">{label}</label>
@@ -316,7 +355,23 @@ function FileUploadField({ label, accept, file, onFile, disabled }) {
         </div>
         <div style={{flex:1}}>
           {file ? (
-            <div style={{fontSize:13,color:'#4ade80',fontWeight:600}}>{file.name}</div>
+            <>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+                <div style={{fontSize:13,color:'#4ade80',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{file.name}</div>
+                {typeof progress === 'number' && (
+                  <div style={{fontSize:12,color:isUploaded ? '#4ade80' : 'rgba(255,255,255,.58)',fontWeight:800}}>
+                    {progress}%
+                  </div>
+                )}
+              </div>
+              {typeof progress === 'number' && (
+                <div className="upload-progress">
+                  <div className="upload-progress-bar" style={{width:`${progress}%`}} />
+                </div>
+              )}
+              {isUploading && <div style={{fontSize:11,color:'rgba(255,255,255,.38)',marginTop:6}}>Uploading...</div>}
+              {isUploaded && <div style={{fontSize:11,color:'#4ade80',marginTop:6}}>Uploaded</div>}
+            </>
           ) : (
             <div style={{fontSize:13,color:'rgba(255,255,255,.35)'}}>Click to upload or drag and drop</div>
           )}

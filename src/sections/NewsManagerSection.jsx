@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Calendar, Edit2, Eye, Newspaper, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const categories = ['All', 'Platform', 'Feature', 'Business', 'Tech', 'Editorial'];
 const catBadge = { Platform:'b-accent', Feature:'b-blue', Business:'b-yellow', Tech:'b-purple', Editorial:'b-green' };
@@ -160,7 +161,7 @@ export function NewsManagerSection() {
             <form onSubmit={submit}>
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
                 <div className="fg"><label className="lbl">Title *</label><input className="inp" value={form.title} onChange={e => setF('title', e.target.value)} required placeholder="Article headline"/></div>
-                <div className="fg"><label className="lbl">Category</label><select className="inp fselect" value={form.category} onChange={e => setF('category', e.target.value)}>{categories.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}</select></div>
+                <div className="fg"><label className="lbl">Category</label><CustomSelect className="inp" value={form.category} onChange={value => setF('category', value)} options={categories.filter(c => c !== 'All')} /></div>
                 <div className="fg"><label className="lbl">Excerpt</label><textarea className="inp" rows={2} value={form.excerpt} onChange={e => setF('excerpt', e.target.value)} placeholder="Short summary..." style={{resize:'vertical'}}/></div>
                 <div className="fg"><label className="lbl">Content</label><textarea className="inp" rows={6} value={form.content} onChange={e => setF('content', e.target.value)} placeholder="Full article content..." style={{resize:'vertical'}}/></div>
               </div>

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Film, Users, DollarSign, Ticket, TrendingUp, TrendingDown, Plus, UserPlus, BarChart3, Play, ArrowRight, Eye, Bell, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { contentService } from '../services/content.js';
+import { userService } from '../services/users.js';
 
 const revenueData = [
   {month:'Jan',revenue:45000},{month:'Feb',revenue:52000},{month:'Mar',revenue:48000},
@@ -16,12 +18,6 @@ const activity = [
   {id:4,action:'Series updated',      item:'Cyber Chronicles S2',           time:'1h ago',  type:'content'},
   {id:5,action:'Support resolved',    item:'Ticket #2847',                  time:'2h ago',  type:'support'},
 ];
-const stats = [
-  {label:'Total Titles',    value:'1,248',  change:'+12%',   trend:'up',   icon:Film},
-  {label:'Active Users',    value:'42.3K',  change:'+8.5%',  trend:'up',   icon:Users},
-  {label:'Monthly Revenue', value:'$89.4K', change:'+15.2%', trend:'up',   icon:DollarSign},
-  {label:'Open Tickets',    value:'127',    change:'-5.3%',  trend:'down', icon:Ticket},
-];
 const activityColor = { content:'rgba(204,26,26,.12)', subscription:'rgba(59,130,246,.10)', payment:'rgba(34,197,94,.10)', support:'rgba(255,255,255,.06)' };
 const activityIconColor = { content:'#ff6b6b', subscription:'#60a5fa', payment:'#4ade80', support:'rgba(255,255,255,.40)' };
 
@@ -34,7 +30,39 @@ const CustomTooltip = ({active,payload,label}) => active&&payload?.length ? (
 
 export function DashboardSection({ onNavigate, userRole }) {
   const [visible, setVisible] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [apiStats, setApiStats] = useState({ titles: 0, users: 0, published: 0, songs: 0 });
   useEffect(()=>{ setTimeout(()=>setVisible(true),80); },[]);
+
+  const fetchStats = async () => {
+    try {
+      setLoadingStats(true);
+      const [contentResult, userResult] = await Promise.allSettled([
+        contentService.getStats(),
+        userService.getAllUsers({ page: 1, limit: 1 }),
+      ]);
+
+      const contentData = contentResult.status === 'fulfilled' ? contentResult.value.data || {} : {};
+      const usersData = userResult.status === 'fulfilled' ? userResult.value.data || {} : {};
+      setApiStats({
+        titles: contentData.total || 0,
+        users: usersData.pagination?.total || usersData.total || usersData.users?.length || 0,
+        published: contentData.published || 0,
+        songs: contentData.songs || 0,
+      });
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => { fetchStats(); }, []);
+
+  const stats = [
+    {label:'Total Titles', value:apiStats.titles.toLocaleString(), change:`${apiStats.published} live`, trend:'up', icon:Film},
+    {label:'Users', value:apiStats.users.toLocaleString(), change:'from /users', trend:'up', icon:Users},
+    {label:'Songs', value:apiStats.songs.toLocaleString(), change:'from /songs', trend:'up', icon:DollarSign},
+    {label:'Open Tickets', value:'0', change:'not in API', trend:'down', icon:Ticket},
+  ];
 
   return (
     <div className={`page ${visible?'visible':''}`}>
@@ -42,7 +70,9 @@ export function DashboardSection({ onNavigate, userRole }) {
         <div className="ph">
           <div className="ph-left"><h1>Dashboard</h1><p>Platform overview — October 2024</p></div>
           <div className="ph-right">
-            <button className="btn btn-secondary btn-sm"><RefreshCw size={13}/>Refresh</button>
+            <button className="btn btn-secondary btn-sm" onClick={fetchStats} disabled={loadingStats}>
+              <RefreshCw size={13} className={loadingStats ? 'spin-icon' : ''}/>Refresh
+            </button>
             <button className="btn btn-primary" onClick={()=>onNavigate&&onNavigate('add-title-type')}><Plus size={14}/>Add Content</button>
           </div>
         </div>
@@ -129,7 +159,7 @@ export function DashboardSection({ onNavigate, userRole }) {
           </div>
         </div>
       </div>
-      <style>{`${PAGE_STYLES} @media(max-width:900px){.chart-row{grid-template-columns:1fr!important}}`}</style>
+      <style>{`${PAGE_STYLES} @keyframes spin{to{transform:rotate(360deg)}} .spin-icon{animation:spin .75s linear infinite} @media(max-width:900px){.chart-row{grid-template-columns:1fr!important}}`}</style>
     </div>
   );
 }

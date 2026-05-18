@@ -3,6 +3,7 @@ import { Settings, User, Shield, Bell, Plug, CreditCard, Save, LogOut, Key, Webh
 import { UserRole } from '../constants/sections';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const tabs = [
   { id:'account',       label:'Account',       icon:User },
@@ -13,7 +14,7 @@ const tabs = [
 ];
 
 export function SettingsSection({ onLogout, userRole, userId }) {
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const [tab, setTab] = useState('account');
   const [visible, setVisible] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -30,6 +31,16 @@ export function SettingsSection({ onLogout, userRole, userId }) {
   ]);
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  useEffect(() => {
+    if (!user) return;
+    setAcct({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email || '',
+      phone_number: user.phone_number || '',
+      age: user.age || '',
+    });
+  }, [user]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
   const save = async (fn) => {
@@ -95,9 +106,13 @@ export function SettingsSection({ onLogout, userRole, userId }) {
           <div className="sett-section-title">Session Timeout</div>
           <div className="fg" style={{maxWidth:220}}>
             <label className="lbl">Auto-logout after</label>
-            <select className="inp fselect" value={security.sessionTimeout} onChange={e=>setS('sessionTimeout',e.target.value)}>
-              {[['15','15 minutes'],['30','30 minutes'],['60','1 hour'],['240','4 hours'],['0','Never']].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-            </select>
+            <CustomSelect className="inp" value={security.sessionTimeout} onChange={value => setS('sessionTimeout', value)} options={[
+              { value: '15', label: '15 minutes' },
+              { value: '30', label: '30 minutes' },
+              { value: '60', label: '1 hour' },
+              { value: '240', label: '4 hours' },
+              { value: '0', label: 'Never' },
+            ]} />
           </div>
         </div>
         <div style={{display:'flex',justifyContent:'flex-end',marginTop:4}}>

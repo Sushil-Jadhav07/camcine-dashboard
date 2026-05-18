@@ -163,7 +163,7 @@ function AppInner() {
       case Section.ACTOR_QUEUE:
         return <ActorQueueSection onNavigate={setCurrentSection} />;
       case Section.SONGS:
-        return <SongsSection onNavigate={setCurrentSection} />;
+        return <SongsSection onNavigate={setCurrentSection} onSelectContent={setSelectedContentId} />;
       case Section.NEWS:
         return <NewsManagerSection onNavigate={setCurrentSection} />;
       case Section.ANALYTICS:

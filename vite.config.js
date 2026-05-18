@@ -7,6 +7,15 @@ import { inspectAttr } from 'kimi-plugin-inspect-react'
 export default defineConfig({
   base: './',
   plugins: [inspectAttr(), react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://camcine-api-604298774917.asia-south1.run.app',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

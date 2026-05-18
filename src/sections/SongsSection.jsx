@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, Clock, Edit2, Eye, Music, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const genres = ['Music', 'Pop', 'Hip-Hop', 'R&B', 'Electronic', 'Rock', 'Indie', 'Classical', 'Jazz'];
 const emptyForm = { title: '', artist: '', album: '', genre: 'Music', duration: '' };
@@ -21,7 +22,7 @@ function durationLabel(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export function SongsSection() {
+export function SongsSection({ onNavigate, onSelectContent }) {
   const [songs, setSongs] = useState([]);
   const [pagination, setPagination] = useState({ total: 0 });
   const [q, setQ] = useState('');
@@ -63,6 +64,11 @@ export function SongsSection() {
       duration: song.duration_seconds ? durationLabel(song.duration_seconds) : '',
     });
     setShowAdd(true);
+  };
+
+  const openDetail = id => {
+    if (onSelectContent) onSelectContent(id);
+    if (onNavigate) onNavigate('content-detail');
   };
   const close = () => { setShowAdd(false); setEditing(null); setForm(emptyForm); };
   const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -142,8 +148,9 @@ export function SongsSection() {
                   <td style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:4}}><Clock size={11}/>{durationLabel(song.duration_seconds)}</td>
                   <td><span className={`badge ${song.status === 'published' ? 'b-green' : 'b-yellow'}`}>{song.status || 'draft'}</span></td>
                   <td><div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
-                    <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(song)}><Edit2 size={13}/></button>
-                    <button className="btn btn-danger btn-icon btn-sm" onClick={() => del(song.id || song._id)}><Trash2 size={13}/></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" title="View Details" onClick={() => openDetail(song.id || song._id)}><Eye size={13}/></button>
+                    <button className="btn btn-ghost btn-icon btn-sm" title="Edit Metadata" onClick={() => openEdit(song)}><Edit2 size={13}/></button>
+                    <button className="btn btn-danger btn-icon btn-sm" title="Archive" onClick={() => del(song.id || song._id)}><Trash2 size={13}/></button>
                   </div></td>
                 </tr>
               )) : (
@@ -166,7 +173,7 @@ export function SongsSection() {
                   <div className="fg"><label className="lbl">Album</label><input className="inp" value={form.album} onChange={e => setF('album', e.target.value)}/></div>
                 </div>
                 <div className="form-grid-2">
-                  <div className="fg"><label className="lbl">Genre</label><select className="inp fselect" value={form.genre} onChange={e => setF('genre', e.target.value)}>{genres.map(g => <option key={g}>{g}</option>)}</select></div>
+                  <div className="fg"><label className="lbl">Genre</label><CustomSelect className="inp" value={form.genre} onChange={value => setF('genre', value)} options={genres} /></div>
                   <div className="fg"><label className="lbl">Duration</label><input className="inp" value={form.duration} onChange={e => setF('duration', e.target.value)} placeholder="3:45 or seconds"/></div>
                 </div>
               </div>

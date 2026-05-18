@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, Calendar, Download, CheckCircle, Clock, XCircle, ChevronLeft, ChevronRight, Search, ArrowUpRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const earningsData = [
   { id:1, date:'2024-03-15', amount:2450.00, status:'Paid',       method:'Bank Transfer', project:'Film Project A' },
@@ -220,9 +221,7 @@ export function ManagerEarningsSection({ userId }) {
               <Search size={14} style={{color:'rgba(255,255,255,.28)'}}/>
               <input placeholder="Search project or method..." value={q} onChange={e=>setQ(e.target.value)}/>
             </div>
-            <select className="me-fsel" value={status} onChange={e=>setStatus(e.target.value)}>
-              {['All','Paid','Pending','Processing','Failed'].map(s=><option key={s}>{s}</option>)}
-            </select>
+            <CustomSelect className="me-fsel" value={status} onChange={setStatus} options={['All','Paid','Pending','Processing','Failed']} />
           </div>
 
           <div className="me-tbl-wrap">

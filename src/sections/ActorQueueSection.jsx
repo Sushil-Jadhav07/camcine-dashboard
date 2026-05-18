@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, CheckCircle, XCircle, Eye, User, Film, Calendar, Search, X, ChevronRight } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const mockQueue = [
   { id:1, name:'Aryan Kapoor',    role:'Lead Actor',  movie:'The Midnight Archive',  status:'pending',  submitted:'2024-03-14', auditionDate:'2024-03-20', age:28, experience:'5 years', headshot:'https://ui-avatars.com/api/?name=Aryan+Kapoor&background=cc1a1a&color=fff' },
@@ -49,9 +50,7 @@ export function ActorQueueSection({ onNavigate }) {
 
         <div className="fbar">
           <div className="fsearch" style={{flex:1}}><Search size={15} style={{color:'rgba(255,255,255,.30)',flexShrink:0}}/><input placeholder="Search actors, movies..." value={q} onChange={e=>setQ(e.target.value)}/></div>
-          <select className="fselect" value={status} onChange={e=>setStatus(e.target.value)}>
-            {['All','Pending','Approved','Rejected'].map(s=><option key={s}>{s}</option>)}
-          </select>
+          <CustomSelect value={status} onChange={setStatus} options={['All','Pending','Approved','Rejected']} />
         </div>
 
         <div style={{display:'grid',gridTemplateColumns:'1fr',gap:10}}>

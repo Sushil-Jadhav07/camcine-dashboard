@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, Users, CreditCard, Calendar, CheckCircle, XCircle, ChevronLeft, ChevronRight, DollarSign, Star, Zap, Crown, X, TrendingUp } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const subs = [
   { id:1, name:'John Smith',    email:'john@email.com',    plan:'Premium',  status:'active',    price:19.99, nextBilling:'2024-04-15', autoRenew:true },
@@ -70,9 +71,7 @@ export function SubscriptionsSection() {
               <input placeholder="Search subscribers..." value={q} onChange={e=>setQ(e.target.value)}/>
               {q && <button onClick={()=>setQ('')} style={{background:'none',border:'none',color:'rgba(255,255,255,.30)',cursor:'pointer',padding:0}}><X size={14}/></button>}
             </div>
-            <select className="fselect" value={status} onChange={e=>setStatus(e.target.value)}>
-              {['All','Active','Cancelled'].map(s=><option key={s}>{s}</option>)}
-            </select>
+            <CustomSelect value={status} onChange={setStatus} options={['All','Active','Cancelled']} />
           </div>
           <div className="tbl-wrap">
             <table className="tbl">

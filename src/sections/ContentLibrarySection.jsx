@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Film, Music, Tv, Play, Eye, Star, Grid, List, X, ArrowRight, RefreshCw, AlertCircle, Archive, CheckCircle, Clock } from 'lucide-react';
+import { Search, Plus, Film, Music, Tv, Play, Eye, Star, Grid, List, X, ArrowRight, RefreshCw, AlertCircle, Archive, CheckCircle, Clock, Edit2 } from 'lucide-react';
 import { UserRole } from '../constants/sections';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
+import { CustomSelect } from '../components/CustomSelect.jsx';
 
 const typeIcon  = { movie:<Film size={13}/>, show:<Tv size={13}/>, song:<Music size={13}/>, short_film:<Film size={13}/>, news:<Film size={13}/> };
 const typeColors = { movie:'b-accent', show:'b-blue', song:'b-green', short_film:'b-yellow', news:'b-purple' };
@@ -82,6 +83,11 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
     if (onNavigate) onNavigate('content-detail');
   };
 
+  const openEdit = (e, id) => {
+    e.stopPropagation();
+    openDetail(id);
+  };
+
   return (
     <div className={`page ${visible ? 'visible' : ''}`}>
       <div className="page-inner">
@@ -110,21 +116,21 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
             <input placeholder="Search titles, descriptions..." value={q} onChange={e => handleSearch(e.target.value)}/>
             {q && <button onClick={() => { setQ(''); setPage(1); }} style={{background:'none',border:'none',color:'rgba(255,255,255,.30)',cursor:'pointer',padding:0}}><X size={14}/></button>}
           </div>
-          <select className="fselect" value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }}>
-            <option value="">All Types</option>
-            <option value="movie">Movie</option>
-            <option value="show">TV Show</option>
-            <option value="song">Song</option>
-            <option value="short_film">Short Film</option>
-            <option value="news">News</option>
-          </select>
-          <select className="fselect" value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}>
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="title">A–Z</option>
-            <option value="price_low">Price ↑</option>
-            <option value="price_high">Price ↓</option>
-          </select>
+          <CustomSelect value={typeFilter} onChange={value => { setTypeFilter(value); setPage(1); }} options={[
+            { value: '', label: 'All Types' },
+            { value: 'movie', label: 'Movie' },
+            { value: 'show', label: 'TV Show' },
+            { value: 'song', label: 'Song' },
+            { value: 'short_film', label: 'Short Film' },
+            { value: 'news', label: 'News' },
+          ]} />
+          <CustomSelect value={sort} onChange={value => { setSort(value); setPage(1); }} options={[
+            { value: 'newest', label: 'Newest' },
+            { value: 'oldest', label: 'Oldest' },
+            { value: 'title', label: 'A-Z' },
+            { value: 'price_low', label: 'Price Low' },
+            { value: 'price_high', label: 'Price High' },
+          ]} />
         </div>
 
         {error && (
@@ -171,6 +177,9 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
                         {c.status === 'published' ? <Clock size={12}/> : <CheckCircle size={12}/>}
                         {c.status === 'published' ? 'Draft' : 'Publish'}
                       </button>
+                      <button className="cl-act-btn" onClick={e => openEdit(e, c.id)} title="Edit">
+                        <Edit2 size={12}/>Edit
+                      </button>
                       <button className="cl-act-btn cl-act-danger" onClick={e => handleArchive(e, c.id)} title="Archive">
                         <Archive size={12}/>Archive
                       </button>
@@ -200,6 +209,7 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
                           {c.status === 'published' ? <Clock size={11}/> : <CheckCircle size={11}/>}
                           {c.status === 'published' ? 'Draft' : 'Publish'}
                         </button>
+                        <button className="cl-act-btn" onClick={e => openEdit(e, c.id)}><Edit2 size={11}/>Edit</button>
                         <button className="cl-act-btn cl-act-danger" onClick={e => handleArchive(e, c.id)}><Archive size={11}/></button>
                       </td>
                     )}
@@ -213,9 +223,9 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
         {/* Pagination */}
         {pagination.total_pages > 1 && (
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,marginTop:24}}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(1,p-1))} disabled={page === 1}>← Prev</button>
+            <button className="btn btn-secondary btn-sm pager-btn" onClick={() => setPage(p => Math.max(1,p-1))} disabled={page === 1}>← Prev</button>
             <span style={{fontSize:13,color:'rgba(255,255,255,.40)'}}>Page {page} of {pagination.total_pages}</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.min(pagination.total_pages,p+1))} disabled={page === pagination.total_pages}>Next →</button>
+            <button className="btn btn-secondary btn-sm pager-btn" onClick={() => setPage(p => Math.min(pagination.total_pages,p+1))} disabled={page === pagination.total_pages}>Next →</button>
           </div>
         )}
 
@@ -241,6 +251,7 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
         .cl-act-btn{display:flex;align-items:center;gap:4px;padding:4px 9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:7px;color:rgba(255,255,255,.50);font-size:11px;font-family:inherit;cursor:pointer;transition:all .15s}
         .cl-act-btn:hover{background:rgba(255,255,255,.10);color:#f0f0f0}
         .cl-act-danger:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.20);color:#fca5a5}
+        .pager-btn{min-width:88px;justify-content:center}
       `}</style>
     </div>
   );
