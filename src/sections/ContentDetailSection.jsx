@@ -606,6 +606,19 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                     </div>
                   </div>
                 </div>
+                {!episodeForm.is_free && (
+                  <div className="fg" style={{maxWidth:180}}>
+                    <label className="lbl">Episode Price</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      className="inp"
+                      value={episodeForm.price_tvod || 0}
+                      onChange={e => setEpisodeForm({...episodeForm, price_tvod: Number(e.target.value)})}
+                    />
+                  </div>
+                )}
                 {editingEpisodeId && (
                   <div className="form-grid-2">
                     <div className="fg"><label className="lbl">Status</label><CustomSelect className="inp" value={episodeForm.status} onChange={value => setEpisodeForm({...episodeForm, status: value})} options={['draft','published','archived']} /></div>
