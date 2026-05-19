@@ -7,6 +7,7 @@ import { CustomSelect } from '../components/CustomSelect.jsx';
 const genres = ['Action','Comedy','Drama','Horror','Sci-Fi','Thriller','Romance','Documentary','Animation','Music','Sports','News','Crime','Fantasy','Adventure'];
 const languages = ['English','Hindi','Tamil','Telugu','Bengali','Marathi','Kannada','Gujarati','Punjabi','Malayalam'];
 const ratings = ['U','UA','A','S'];
+const countries = ['India','United States','United Kingdom','Canada','Australia','United Arab Emirates','Other'];
 
 // Map our UI type ids to API type values
 const typeToApiType = {
@@ -25,6 +26,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
 
   const [form, setForm] = useState({
     title: '', description: '', language: 'Hindi',
+    country: 'India',
     genre: [], director: '', release_year: new Date().getFullYear(),
     rating: 'U', is_free: true, price_tvod: 0, duration_seconds: '',
   });
@@ -58,6 +60,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
         type: apiType,
         description: form.description.trim(),
         language: form.language,
+        country: apiType === 'movie' ? form.country : undefined,
         genre: form.genre,
         director: form.director.trim() || undefined,
         release_year: Number(form.release_year),
@@ -181,6 +184,12 @@ export function AddTitleSection({ onNavigate, titleType }) {
                       <label className="lbl">Language</label>
                       <CustomSelect className="inp" value={form.language} onChange={value => setF('language', value)} options={languages} />
                     </div>
+                    {apiType === 'movie' && (
+                      <div className="fg">
+                        <label className="lbl">Country</label>
+                        <CustomSelect className="inp" value={form.country} onChange={value => setF('country', value)} options={countries} />
+                      </div>
+                    )}
                     <div className="fg">
                       <label className="lbl">Rating</label>
                       <CustomSelect className="inp" value={form.rating} onChange={value => setF('rating', value)} options={ratings} />
@@ -238,7 +247,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
                     >Free</button>
                     <button type="button"
                       className={`toggle-pill ${!form.is_free ? 'active' : ''}`}
-                      onClick={() => setF('is_free', false)}
+                      onClick={() => setForm(prev => ({ ...prev, is_free: false, price_tvod: Number(prev.price_tvod) > 0 ? prev.price_tvod : 49 }))}
                     >Paid (TVOD)</button>
                   </div>
                   {!form.is_free && (

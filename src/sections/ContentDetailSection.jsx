@@ -9,6 +9,7 @@ import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog.jsx';
 const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
 const normalizeContent = data => data?.content || data?.item || data || null;
 const normalizeList = data => data?.cast || data?.episodes || data?.items || data || [];
+const countries = ['India','United States','United Kingdom','Canada','Australia','United Arab Emirates','Other'];
 const typeIcon = {
   movie: Film,
   short_film: Film,
@@ -53,7 +54,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
 
   // Form states
   const [editForm, setEditForm] = useState({
-    title: '', description: '', language: '', genre: '', director: '',
+    title: '', description: '', language: '', country: '', genre: '', director: '',
     release_year: '', rating: '', status: 'draft', duration_seconds: '', is_free: true, price_tvod: 0,
   });
   const [castForm, setCastForm] = useState({ actor_name: '', character_name: '', role_type: 'supporting_actor', billing_order: 1 });
@@ -110,6 +111,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
       title: content?.title || '',
       description: content?.description || '',
       language: content?.language || '',
+      country: content?.country || '',
       genre: asArray(content?.genre).join(', '),
       director: content?.director || '',
       release_year: content?.release_year || '',
@@ -133,6 +135,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
         title: editForm.title.trim(),
         description: editForm.description.trim(),
         language: editForm.language.trim() || undefined,
+        country: content.type === 'movie' ? editForm.country.trim() || undefined : undefined,
         genre: editForm.genre.split(',').map(item => item.trim()).filter(Boolean),
         director: editForm.director.trim() || undefined,
         release_year: editForm.release_year ? Number(editForm.release_year) : undefined,
@@ -374,6 +377,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                   <Info icon={Calendar} label="Release" value={content.release_year || content.release_date || 'N/A'} />
                   <Info icon={Clock} label="Duration" value={durationLabel(content.duration_seconds)} />
                   <Info icon={Tag} label="Genres" value={genres.join(', ') || 'N/A'} />
+                  <Info icon={Film} label="Country" value={content.country || 'N/A'} />
                   <Info icon={Eye} label="Views" value={statValue(stats.views || stats.total_views || content.views || content.view_count)} />
                 </div>
               </div>
@@ -393,6 +397,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                 <div className="detail-grid">
                   <Field label="ID" value={content.id || content._id} />
                   <Field label="Language" value={content.language} />
+                  <Field label="Country" value={content.country} />
                   <Field label="Director" value={content.director} />
                   <Field label="Free/Paid" value={content.is_free ? 'Free' : `Paid - ₹${content.price_tvod || 0}`} />
                   <Field label="Created" value={content.created_at} />
@@ -500,6 +505,12 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                   <div className="fg"><label className="lbl">Language</label><input className="inp" value={editForm.language} onChange={e => setEditForm({...editForm, language: e.target.value})}/></div>
                   <div className="fg"><label className="lbl">Genres</label><input className="inp" value={editForm.genre} onChange={e => setEditForm({...editForm, genre: e.target.value})} placeholder="Drama, Action"/></div>
                 </div>
+                {content?.type === 'movie' && (
+                  <div className="fg">
+                    <label className="lbl">Country</label>
+                    <CustomSelect className="inp" value={editForm.country} onChange={value => setEditForm({...editForm, country: value})} options={countries} />
+                  </div>
+                )}
                 <div className="form-grid-3">
                   <div className="fg"><label className="lbl">Director / Artist</label><input className="inp" value={editForm.director} onChange={e => setEditForm({...editForm, director: e.target.value})}/></div>
                   <div className="fg"><label className="lbl">Release Year</label><input type="number" className="inp" value={editForm.release_year} onChange={e => setEditForm({...editForm, release_year: e.target.value})}/></div>
@@ -521,7 +532,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                       <label className="lbl">Pricing</label>
                       <div style={{display:'flex',gap:10,marginTop:6}}>
                         <button type="button" className={`toggle-pill ${editForm.is_free ? 'active' : ''}`} onClick={() => setEditForm({...editForm, is_free: true})}>Free</button>
-                        <button type="button" className={`toggle-pill ${!editForm.is_free ? 'active' : ''}`} onClick={() => setEditForm({...editForm, is_free: false})}>Paid</button>
+                        <button type="button" className={`toggle-pill ${!editForm.is_free ? 'active' : ''}`} onClick={() => setEditForm({...editForm, is_free: false, price_tvod: Number(editForm.price_tvod) > 0 ? editForm.price_tvod : 49})}>Paid</button>
                       </div>
                     </div>
                   </div>
@@ -591,7 +602,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                     <label className="lbl">Access</label>
                     <div style={{display:'flex',gap:10,marginTop:6}}>
                       <button type="button" className={`toggle-pill ${episodeForm.is_free ? 'active' : ''}`} onClick={() => setEpisodeForm({...episodeForm, is_free: true})}>Free</button>
-                      <button type="button" className={`toggle-pill ${!episodeForm.is_free ? 'active' : ''}`} onClick={() => setEpisodeForm({...episodeForm, is_free: false})}>Paid</button>
+                      <button type="button" className={`toggle-pill ${!episodeForm.is_free ? 'active' : ''}`} onClick={() => setEpisodeForm({...episodeForm, is_free: false, price_tvod: Number(episodeForm.price_tvod) > 0 ? episodeForm.price_tvod : 49})}>Paid</button>
                     </div>
                   </div>
                 </div>

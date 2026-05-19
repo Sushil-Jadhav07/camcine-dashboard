@@ -183,6 +183,7 @@ GET /content
 | type | string | movie, show, short_film, song, news |
 | language | string | Filter by language |
 | region | string | Filter by region |
+| country | string | Filter movie country |
 | genre | string | Filter by genre |
 | is_free | boolean | Free/Paid |
 | search | string | Search title/description |
@@ -208,6 +209,7 @@ POST /content
   "type": "movie",
   "description": "A story of a wrestler and his daughters.",
   "language": "Hindi",
+  "country": "India",
   "genre": ["Drama", "Sports"],
   "director": "Nitesh Tiwari",
   "release_year": 2016,

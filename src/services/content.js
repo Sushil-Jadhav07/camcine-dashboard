@@ -69,6 +69,8 @@ const normalizeItem = (item, type, endpoint) => {
     id: getId(item),
     type: item?.type || type,
     title: item?.title || item?.song_name || item?.series_name,
+    is_free: item?.is_free === true || item?.isFree === true,
+    price_tvod: Number(item?.price_tvod ?? item?.price ?? 0),
   };
 
   if (endpoint === '/episodes') {

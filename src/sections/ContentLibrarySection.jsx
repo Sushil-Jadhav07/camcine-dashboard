@@ -203,6 +203,7 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
                   <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
                     {c.genre?.length > 0 && <span style={{fontSize:11,color:'rgba(255,255,255,.38)'}}>{Array.isArray(c.genre)?c.genre[0]:c.genre}</span>}
                     {c.language && <span style={{fontSize:11,color:'rgba(255,255,255,.38)'}}>{c.language}</span>}
+                    {c.country && <span style={{fontSize:11,color:'rgba(255,255,255,.38)'}}>{c.country}</span>}
                     {c.rating && <span style={{fontSize:11,color:'rgba(255,255,255,.38)'}}>{c.rating}</span>}
                     {c.duration_seconds && <span style={{fontSize:11,color:'rgba(255,255,255,.38)'}}>{fmtDuration(c.duration_seconds)}</span>}
                     {c.is_free ? <span style={{fontSize:10,color:'#4ade80',fontWeight:600}}>FREE</span> : c.price_tvod > 0 ? <span style={{fontSize:10,color:'#fbbf24',fontWeight:600}}>₹{c.price_tvod}</span> : null}
@@ -228,13 +229,14 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
         ) : (
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>Title</th><th>Type</th><th>Language</th><th>Duration</th><th>Rating</th><th>Price</th><th>Status</th>{canManage && <th>Actions</th>}</tr></thead>
+              <thead><tr><th>Title</th><th>Type</th><th>Language</th><th>Country</th><th>Duration</th><th>Rating</th><th>Price</th><th>Status</th>{canManage && <th>Actions</th>}</tr></thead>
               <tbody>
                 {items.map(c => (
                   <tr key={c.id} style={{cursor:'pointer'}} onClick={() => openDetail(c.id)}>
                     <td style={{fontWeight:600,maxWidth:220}}>{c.title}</td>
                     <td><span className={`badge ${typeColors[c.type]||'b-gray'}`} style={{fontSize:11,display:'flex',alignItems:'center',gap:4,width:'fit-content'}}>{typeIcon[c.type]}{c.type}</span></td>
                     <td style={{color:'rgba(255,255,255,.50)',fontSize:13}}>{c.language || '—'}</td>
+                    <td style={{color:'rgba(255,255,255,.50)',fontSize:13}}>{c.country || '—'}</td>
                     <td style={{color:'rgba(255,255,255,.50)',fontSize:13}}>{fmtDuration(c.duration_seconds)}</td>
                     <td style={{color:'rgba(255,255,255,.50)',fontSize:13}}>{c.rating || '—'}</td>
                     <td style={{fontSize:13}}>{c.is_free ? <span style={{color:'#4ade80',fontWeight:600}}>Free</span> : c.price_tvod > 0 ? `₹${c.price_tvod}` : '—'}</td>
