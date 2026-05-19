@@ -11,6 +11,20 @@ class ApiError extends Error {
   }
 }
 
+function formatValidationMessage(data, fallback) {
+  const fieldErrors = Array.isArray(data?.errors) ? data.errors : [];
+  const messages = fieldErrors
+    .map(error => {
+      const field = error.path || error.param;
+      const message = error.msg;
+      if (!message) return null;
+      return field ? `${field}: ${message}` : message;
+    })
+    .filter(Boolean);
+
+  if (messages.length) return messages.join(' ');
+  return data?.message || fallback;
+}
 
 class ApiClient {
   constructor() {
@@ -52,7 +66,7 @@ class ApiClient {
 
       if (!response.ok) {
         throw new ApiError(
-          data.message || `HTTP error! status: ${response.status}`,
+          formatValidationMessage(data, `HTTP error! status: ${response.status}`),
           response.status,
           data
         );

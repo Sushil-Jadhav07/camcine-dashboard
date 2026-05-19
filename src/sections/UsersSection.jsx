@@ -114,7 +114,12 @@ export function UsersSection() {
       setDeactivateLoading(true);
       const r = await userService.deactivateUser(deactivateTarget.id);
       setDeactivateTarget(null);
-      if (r.success) fetchUsers();
+      if (r.success) {
+        setUsers(prev => prev.map(user => (
+          user.id === deactivateTarget.id ? { ...user, is_active: false } : user
+        )));
+        fetchUsers();
+      }
     } catch(e) { setError(e.message); }
     finally { setDeactivateLoading(false); }
   };
@@ -186,7 +191,10 @@ export function UsersSection() {
                 <tr><td colSpan={6}><div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10,padding:'32px',color:'rgba(255,255,255,.35)'}}><div className="spin"/>Loading users…</div></td></tr>
               ) : users.length === 0 ? (
                 <tr><td colSpan={6}><div className="empty"><UsersIcon size={32}/><p>No users found</p></div></td></tr>
-              ) : users.map(u => (
+              ) : users.map(u => {
+                const isCurrentUser = currentUser?.id === u.id;
+                const canDeactivate = u.is_active && !isCurrentUser;
+                return (
                 <tr key={u.id}>
                   <td>
                     <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -205,12 +213,20 @@ export function UsersSection() {
                     <td>
                       <div style={{display:'flex',justifyContent:'flex-end',gap:6}}>
                         <button className="btn btn-ghost btn-icon" onClick={() => openEdit(u)} title="Edit"><Edit2 size={14}/></button>
-                        <button className="btn btn-danger btn-icon" onClick={() => setDeactivateTarget({ id: u.id, name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || 'This user' })} title="Deactivate"><Trash2 size={14}/></button>
+                        <button
+                          className="btn btn-danger btn-icon"
+                          onClick={() => setDeactivateTarget({ id: u.id, name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || 'This user' })}
+                          title={isCurrentUser ? 'You cannot deactivate your own account' : u.is_active ? 'Deactivate' : 'User already inactive'}
+                          disabled={!canDeactivate}
+                        >
+                          <Trash2 size={14}/>
+                        </button>
                       </div>
                     </td>
                   )}
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         </div>

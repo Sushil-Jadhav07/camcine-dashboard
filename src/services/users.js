@@ -69,7 +69,8 @@ export const userService = {
       if (response.success) {
         return {
           success: true,
-          message: response.message || 'User deactivated successfully'
+          message: response.message || 'User deactivated successfully',
+          data: response.data
         };
       }
       
