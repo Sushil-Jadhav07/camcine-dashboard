@@ -3,6 +3,7 @@ import { AlertCircle, Clock, Edit2, Eye, Music, Plus, RefreshCw, Search, Trash2,
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
 import { CustomSelect } from '../components/CustomSelect.jsx';
+import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog.jsx';
 
 const genres = ['Music', 'Pop', 'Hip-Hop', 'R&B', 'Electronic', 'Rock', 'Indie', 'Classical', 'Jazz'];
 const emptyForm = { title: '', artist: '', album: '', genre: 'Music', duration: '' };
@@ -32,6 +33,8 @@ export function SongsSection({ onNavigate, onSelectContent }) {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
@@ -103,13 +106,17 @@ export function SongsSection({ onNavigate, onSelectContent }) {
     }
   };
 
-  const del = async id => {
-    if (!confirm('Archive this song?')) return;
+  const del = async () => {
+    if (!deleteTarget) return;
     try {
-      await contentService.archiveContent(id);
+      setDeleteLoading(true);
+      await contentService.archiveContent(deleteTarget.id);
+      setDeleteTarget(null);
       fetchSongs();
     } catch (e) {
       setError(e.message || 'Failed to archive song');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -150,7 +157,7 @@ export function SongsSection({ onNavigate, onSelectContent }) {
                   <td><div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
                     <button className="btn btn-ghost btn-icon btn-sm" title="View Details" onClick={() => openDetail(song.id || song._id)}><Eye size={13}/></button>
                     <button className="btn btn-ghost btn-icon btn-sm" title="Edit Metadata" onClick={() => openEdit(song)}><Edit2 size={13}/></button>
-                    <button className="btn btn-danger btn-icon btn-sm" title="Archive" onClick={() => del(song.id || song._id)}><Trash2 size={13}/></button>
+                    <button className="btn btn-danger btn-icon btn-sm" title="Archive" onClick={() => setDeleteTarget({ id: song.id || song._id, title: song.title || 'this song' })}><Trash2 size={13}/></button>
                   </div></td>
                 </tr>
               )) : (
@@ -185,6 +192,16 @@ export function SongsSection({ onNavigate, onSelectContent }) {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        title="Archive song?"
+        message={`"${deleteTarget?.title || 'This song'}" will be moved to archived content.`}
+        confirmLabel="Archive"
+        loading={deleteLoading}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={del}
+      />
 
       <style>{`${PAGE_STYLES}
         @keyframes spin{to{transform:rotate(360deg)}}

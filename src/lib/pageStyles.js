@@ -119,12 +119,16 @@ export const PAGE_STYLES = `
   .custom-select-trigger { width:100%; min-height:42px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 14px; border-radius:10px; border:1px solid rgba(255,255,255,.10); background:#1a1a1a; color:#f5f5f5; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:border-color .15s, background .15s; }
   .custom-select.open .custom-select-trigger,
   .custom-select-trigger:hover { border-color:rgba(204,26,26,.45); background:#181818; }
-  .custom-select-trigger svg { color:rgba(255,255,255,.58); flex-shrink:0; }
+  .custom-select.disabled .custom-select-trigger { opacity:.55; cursor:not-allowed; }
+  .custom-select-trigger:focus-visible { outline:2px solid rgba(204,26,26,.45); outline-offset:2px; }
+  .custom-select-chevron { width:8px; height:8px; flex-shrink:0; border-right:2px solid rgba(255,255,255,.58); border-bottom:2px solid rgba(255,255,255,.58); transform:rotate(45deg); margin-top:-4px; transition:transform .15s; }
+  .custom-select.open .custom-select-chevron { transform:rotate(225deg); margin-top:4px; }
   .custom-select-menu { position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:3000; display:flex; flex-direction:column; min-width:100%; padding:6px; border-radius:12px; background:#101010; border:1px solid rgba(255,255,255,.12); box-shadow:0 18px 48px rgba(0,0,0,.55); }
   .custom-select-option { width:100%; display:flex; align-items:center; min-height:34px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:rgba(255,255,255,.72); font-family:inherit; font-size:13px; text-align:left; cursor:pointer; }
   .custom-select-option:hover { background:rgba(255,255,255,.07); color:#fff; }
   .custom-select-option.selected { background:rgba(204,26,26,.22); color:#ff9a9a; font-weight:800; }
-  .custom-select-option:disabled { opacity:.35; cursor:not-allowed; }
+  .custom-select-option[aria-disabled="true"] { opacity:.35; cursor:not-allowed; }
+  .custom-select-option:focus-visible { outline:2px solid rgba(204,26,26,.45); outline-offset:1px; }
   .inp.custom-select { padding:0; border:0; background:transparent; }
   .inp.custom-select .custom-select-trigger { min-height:48px; border-color:rgba(255,255,255,.10); }
 

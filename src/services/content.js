@@ -4,7 +4,7 @@ const endpointCache = new Map();
 
 const routeByType = {
   movie: '/movies',
-  short_film: '/movies',
+  short_film: '/episodes',
   news: '/movies',
   song: '/songs',
   show: '/episodes',
@@ -71,8 +71,8 @@ const normalizeItem = (item, type, endpoint) => {
     title: item?.title || item?.song_name || item?.series_name,
   };
 
-  if (type === 'show' || endpoint === '/episodes') {
-    normalized.type = 'show';
+  if (endpoint === '/episodes') {
+    normalized.type = item?.type === 'short_film' || type === 'short_film' ? 'short_film' : 'show';
   }
   if (type === 'song' || endpoint === '/songs') {
     normalized.type = 'song';
@@ -366,14 +366,20 @@ export const contentService = {
     }
   },
 
-  async archiveContent(id) {
+  async deleteContent(id) {
     try {
       const endpoint = await getEndpointForId(id);
-      return unwrap(await apiClient.delete(`${endpoint}/${id}`), 'Failed to delete content');
+      const response = unwrap(await apiClient.delete(`${endpoint}/${id}`), 'Failed to delete content');
+      endpointCache.delete(id);
+      return response;
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw new ApiError('Failed to delete content.');
     }
+  },
+
+  async archiveContent(id) {
+    return this.deleteContent(id);
   },
 
   async getEpisodes(seriesId, params = {}) {

@@ -7,6 +7,7 @@ import { UserRole } from '../constants/sections';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { buildRegisterPayload, buildUserUpdatePayload, normalizeUsersFromApi, mapRoleToApi } from '../services/roleMapper.js';
 import { CustomSelect } from '../components/CustomSelect.jsx';
+import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog.jsx';
 
 const roleLabels = { [UserRole.ADMIN]:'Admin', [UserRole.MANAGER]:'Manager', [UserRole.USER]:'Viewer', [UserRole.ACTOR]:'Actor' };
 const roleBadge  = { [UserRole.ADMIN]:'b-accent', [UserRole.MANAGER]:'b-yellow', [UserRole.USER]:'b-blue', [UserRole.ACTOR]:'b-purple' };
@@ -41,6 +42,8 @@ export function UsersSection() {
   const [editForm, setEditForm] = useState(emptyEditForm);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState(null);
+  const [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [deactivateLoading, setDeactivateLoading] = useState(false);
 
   const PER = 10;
   const canManage = currentUser?.role === UserRole.ADMIN;
@@ -105,12 +108,15 @@ export function UsersSection() {
     finally { setEditLoading(false); }
   };
 
-  const handleDeactivate = async (id) => {
-    if (!confirm('Deactivate this user? They will no longer be able to log in.')) return;
+  const handleDeactivate = async () => {
+    if (!deactivateTarget) return;
     try {
-      const r = await userService.deactivateUser(id);
+      setDeactivateLoading(true);
+      const r = await userService.deactivateUser(deactivateTarget.id);
+      setDeactivateTarget(null);
       if (r.success) fetchUsers();
     } catch(e) { setError(e.message); }
+    finally { setDeactivateLoading(false); }
   };
 
   const initials = u => `${u.first_name?.[0]||''}${u.last_name?.[0]||''}`.toUpperCase() || '?';
@@ -199,7 +205,7 @@ export function UsersSection() {
                     <td>
                       <div style={{display:'flex',justifyContent:'flex-end',gap:6}}>
                         <button className="btn btn-ghost btn-icon" onClick={() => openEdit(u)} title="Edit"><Edit2 size={14}/></button>
-                        <button className="btn btn-danger btn-icon" onClick={() => handleDeactivate(u.id)} title="Deactivate"><Trash2 size={14}/></button>
+                        <button className="btn btn-danger btn-icon" onClick={() => setDeactivateTarget({ id: u.id, name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || 'This user' })} title="Deactivate"><Trash2 size={14}/></button>
                       </div>
                     </td>
                   )}
@@ -324,6 +330,16 @@ export function UsersSection() {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deactivateTarget}
+        title="Deactivate user?"
+        message={`${deactivateTarget?.name || 'This user'} will no longer be able to log in.`}
+        confirmLabel="Deactivate"
+        loading={deactivateLoading}
+        onCancel={() => setDeactivateTarget(null)}
+        onConfirm={handleDeactivate}
+      />
 
       <style>{`
         ${PAGE_STYLES}

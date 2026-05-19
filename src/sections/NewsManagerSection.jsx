@@ -3,6 +3,7 @@ import { AlertCircle, Calendar, Edit2, Eye, Newspaper, Plus, RefreshCw, Search, 
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
 import { CustomSelect } from '../components/CustomSelect.jsx';
+import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog.jsx';
 
 const categories = ['All', 'Platform', 'Feature', 'Business', 'Tech', 'Editorial'];
 const catBadge = { Platform:'b-accent', Feature:'b-blue', Business:'b-yellow', Tech:'b-purple', Editorial:'b-green' };
@@ -22,6 +23,8 @@ export function NewsManagerSection() {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
@@ -87,13 +90,17 @@ export function NewsManagerSection() {
     }
   };
 
-  const archive = async id => {
-    if (!confirm('Archive this article?')) return;
+  const archive = async () => {
+    if (!deleteTarget) return;
     try {
-      await contentService.archiveContent(id);
+      setDeleteLoading(true);
+      await contentService.archiveContent(deleteTarget.id);
+      setDeleteTarget(null);
       fetchNews();
     } catch (e) {
       setError(e.message || 'Failed to archive article');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -146,7 +153,7 @@ export function NewsManagerSection() {
                 <div style={{display:'flex',flexDirection:'column',gap:6,flexShrink:0}}>
                   <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(item)} title="Edit"><Edit2 size={13}/></button>
                   <button className="btn btn-ghost btn-icon btn-sm" title="Toggle status" onClick={() => toggleStatus(item)}><Eye size={13}/></button>
-                  <button className="btn btn-danger btn-icon btn-sm" onClick={() => archive(itemId(item))} title="Archive"><Trash2 size={13}/></button>
+                  <button className="btn btn-danger btn-icon btn-sm" onClick={() => setDeleteTarget({ id: itemId(item), title: item.title || 'this article' })} title="Archive"><Trash2 size={13}/></button>
                 </div>
               </div>
             );
@@ -173,6 +180,16 @@ export function NewsManagerSection() {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        title="Archive article?"
+        message={`"${deleteTarget?.title || 'This article'}" will be moved to archived content.`}
+        confirmLabel="Archive"
+        loading={deleteLoading}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={archive}
+      />
 
       <style>{`${PAGE_STYLES}
         @keyframes spin{to{transform:rotate(360deg)}}

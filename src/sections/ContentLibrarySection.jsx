@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, Film, Music, Tv, Play, Eye, Star, Grid, List, X, ArrowRight, RefreshCw, AlertCircle, Archive, CheckCircle, Clock, Edit2 } from 'lucide-react';
+import { Search, Plus, Film, Music, Tv, Play, Grid, List, X, RefreshCw, AlertCircle, Trash2, CheckCircle, Clock, Edit2 } from 'lucide-react';
 import { UserRole } from '../constants/sections';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
 import { CustomSelect } from '../components/CustomSelect.jsx';
+import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog.jsx';
 
 const typeIcon  = { movie:<Film size={13}/>, show:<Tv size={13}/>, song:<Music size={13}/>, short_film:<Film size={13}/>, news:<Film size={13}/> };
 const typeColors = { movie:'b-accent', show:'b-blue', song:'b-green', short_film:'b-yellow', news:'b-purple' };
-const statusColors = { published:'b-green', draft:'b-yellow', archived:'b-gray' };
+const statusColors = { published:'b-green', draft:'b-yellow', processing:'b-blue', archived:'b-gray' };
+const activeStatuses = new Set(['draft', 'processing', 'published']);
 
 function fmtDuration(secs) {
   if (!secs) return '—';
@@ -21,13 +23,15 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
   const [pagination, setPagination] = useState({ page:1, limit:20, total:0, total_pages:1 });
   const [q, setQ] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('published');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [sort, setSort] = useState('newest');
   const [view, setView] = useState('grid');
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
 
@@ -37,15 +41,23 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
       const params = { page, limit: 20, sort };
       if (q) params.search = q;
       if (typeFilter) params.type = typeFilter;
-      // Don't filter by status so all content shows (API default shows published)
+      if (statusFilter && statusFilter !== 'active') params.status = statusFilter;
       const r = await contentService.getContent(params);
       if (r.success) {
-        setItems(r.data.content || []);
-        setPagination(r.data.pagination || { page:1, total:0, total_pages:1 });
+        const content = r.data.content || [];
+        const visibleContent = statusFilter === 'active'
+          ? content.filter(item => activeStatuses.has(item.status || 'published'))
+          : content;
+        setItems(visibleContent);
+        setPagination({
+          ...(r.data.pagination || { page:1, total:0, total_pages:1 }),
+          total: visibleContent.length,
+          total_pages: Math.max(1, Math.ceil(visibleContent.length / 20)),
+        });
       }
     } catch(e) { setError(e.message); }
     finally { setLoading(false); }
-  }, [page, q, typeFilter, sort]);
+  }, [page, q, typeFilter, statusFilter, sort]);
 
   useEffect(() => { fetchContent(); }, [fetchContent]);
 
@@ -60,13 +72,30 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
   const canAdd = userRole === UserRole.ADMIN || userRole === UserRole.MANAGER;
   const canManage = userRole === UserRole.ADMIN;
 
-  const handleArchive = async (e, id) => {
+  const openDeleteDialog = (e, item) => {
     e.stopPropagation();
-    if (!confirm('Archive this content?')) return;
+    if (item.status === 'archived') {
+      alert('This content is already archived.');
+      return;
+    }
+    setDeleteTarget(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      const r = await contentService.archiveContent(id);
-      if (r.success) fetchContent();
+      setDeleteLoading(true);
+      const r = await contentService.deleteContent(deleteTarget.id);
+      if (r.success) {
+        setItems(current => current.filter(content => content.id !== deleteTarget.id));
+        setPagination(current => ({
+          ...current,
+          total: Math.max(0, Number(current.total || 0) - 1),
+        }));
+        setDeleteTarget(null);
+      }
     } catch(e) { alert(e.message); }
+    finally { setDeleteLoading(false); }
   };
 
   const handlePublish = async (e, id, currentStatus) => {
@@ -124,6 +153,13 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
             { value: 'short_film', label: 'Short Film' },
             { value: 'news', label: 'News' },
           ]} />
+          <CustomSelect value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }} options={[
+            { value: 'active', label: 'Active Statuses' },
+            { value: 'draft', label: 'Draft' },
+            { value: 'processing', label: 'Processing' },
+            { value: 'published', label: 'Published' },
+            { value: 'archived', label: 'Archived' },
+          ]} />
           <CustomSelect value={sort} onChange={value => { setSort(value); setPage(1); }} options={[
             { value: 'newest', label: 'Newest' },
             { value: 'oldest', label: 'Oldest' },
@@ -180,8 +216,8 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
                       <button className="cl-act-btn" onClick={e => openEdit(e, c.id)} title="Edit">
                         <Edit2 size={12}/>Edit
                       </button>
-                      <button className="cl-act-btn cl-act-danger" onClick={e => handleArchive(e, c.id)} title="Archive">
-                        <Archive size={12}/>Archive
+                      <button className="cl-act-btn cl-act-danger" onClick={e => openDeleteDialog(e, c)} title="Delete content" disabled={c.status === 'archived'}>
+                        <Trash2 size={12}/>Delete
                       </button>
                     </div>
                   )}
@@ -210,7 +246,7 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
                           {c.status === 'published' ? 'Draft' : 'Publish'}
                         </button>
                         <button className="cl-act-btn" onClick={e => openEdit(e, c.id)}><Edit2 size={11}/>Edit</button>
-                        <button className="cl-act-btn cl-act-danger" onClick={e => handleArchive(e, c.id)}><Archive size={11}/></button>
+                        <button className="cl-act-btn cl-act-danger" onClick={e => openDeleteDialog(e, c)} title="Delete content" disabled={c.status === 'archived'}><Trash2 size={11}/></button>
                       </td>
                     )}
                   </tr>
@@ -234,6 +270,15 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
         )}
       </div>
 
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        title="Delete content?"
+        message={`"${deleteTarget?.title || 'This content'}" will be moved to archived content and hidden from the active library.`}
+        loading={deleteLoading}
+        onCancel={() => !deleteLoading && setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
+
       <style>{`
         ${PAGE_STYLES}
         @keyframes spin{to{transform:rotate(360deg)}}
@@ -250,6 +295,8 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
         .cl-title{font-size:13.5px;font-weight:700;color:#f5f5f5;line-height:1.35}
         .cl-act-btn{display:flex;align-items:center;gap:4px;padding:4px 9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:7px;color:rgba(255,255,255,.50);font-size:11px;font-family:inherit;cursor:pointer;transition:all .15s}
         .cl-act-btn:hover{background:rgba(255,255,255,.10);color:#f0f0f0}
+        .cl-act-btn:disabled{opacity:.42;cursor:not-allowed}
+        .cl-act-btn:disabled:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.50);border-color:rgba(255,255,255,.10)}
         .cl-act-danger:hover{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.20);color:#fca5a5}
         .pager-btn{min-width:88px;justify-content:center}
       `}</style>

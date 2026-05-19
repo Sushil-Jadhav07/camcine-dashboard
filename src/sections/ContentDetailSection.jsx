@@ -4,6 +4,7 @@ import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { contentService } from '../services/content.js';
 import { viewService } from '../services/views.js';
 import { CustomSelect } from '../components/CustomSelect.jsx';
+import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog.jsx';
 
 const asArray = value => Array.isArray(value) ? value : value ? [value] : [];
 const normalizeContent = data => data?.content || data?.item || data || null;
@@ -47,14 +48,17 @@ export function ContentDetailSection({ onNavigate, contentId }) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   // Form states
   const [editForm, setEditForm] = useState({
     title: '', description: '', language: '', genre: '', director: '',
-    release_year: '', rating: '', duration_seconds: '', is_free: true, price_tvod: 0,
+    release_year: '', rating: '', status: 'draft', duration_seconds: '', is_free: true, price_tvod: 0,
   });
   const [castForm, setCastForm] = useState({ actor_name: '', character_name: '', role_type: 'supporting_actor', billing_order: 1 });
   const [episodeForm, setEpisodeForm] = useState({ season: 1, episode_number: 1, title: '', description: '', duration_seconds: 3600, is_free: true });
+  const [editingEpisodeId, setEditingEpisodeId] = useState(null);
   const [episodeFiles, setEpisodeFiles] = useState({ thumbnail: null, video: null });
   const [assetFiles, setAssetFiles] = useState({ audio_hq: null, audio_lq: null, lyrics: null });
   const [assetType, setAssetType] = useState('audio'); // 'audio' or 'lyrics'
@@ -110,6 +114,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
       director: content?.director || '',
       release_year: content?.release_year || '',
       rating: content?.rating || '',
+      status: content?.status || 'draft',
       duration_seconds: content?.duration_seconds || '',
       is_free: content?.is_free !== false,
       price_tvod: content?.price_tvod || 0,
@@ -132,6 +137,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
         director: editForm.director.trim() || undefined,
         release_year: editForm.release_year ? Number(editForm.release_year) : undefined,
         rating: editForm.rating.trim() || undefined,
+        status: editForm.status || undefined,
         duration_seconds: editForm.duration_seconds ? Number(editForm.duration_seconds) : undefined,
         is_free: editForm.is_free,
         price_tvod: editForm.is_free ? 0 : Number(editForm.price_tvod || 0),
@@ -145,6 +151,35 @@ export function ContentDetailSection({ onNavigate, contentId }) {
     } finally {
       setModalLoading(false);
     }
+  };
+
+  const handleStatusToggle = async () => {
+    const nextStatus = content?.status === 'published' ? 'draft' : 'published';
+    try {
+      setLoading(true);
+      await contentService.updateStatus(contentId, nextStatus);
+      await fetchDetail();
+    } catch (err) {
+      setError(err.message || 'Failed to update status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestDeleteContent = () => {
+    if (content?.status === 'archived') {
+      alert('This content is already archived.');
+      return;
+    }
+    setConfirmDelete({
+      title: 'Delete content?',
+      message: `"${content?.title || 'This content'}" will be moved to archived content and hidden from the active library.`,
+      confirmLabel: 'Delete',
+      action: async () => {
+        await contentService.deleteContent(contentId);
+        back();
+      },
+    });
   };
 
   const handleAddCast = async (e) => {
@@ -163,28 +198,60 @@ export function ContentDetailSection({ onNavigate, contentId }) {
   };
 
   const handleDeleteCast = async (castId) => {
-    if (!confirm('Remove this cast member?')) return;
-    try {
-      setLoading(true);
-      await contentService.deleteCastMember(contentId, content.type, castId);
-      fetchDetail();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    setConfirmDelete({
+      title: 'Remove cast member?',
+      message: 'This cast member will be removed from the selected content.',
+      confirmLabel: 'Remove',
+      action: async () => {
+        await contentService.deleteCastMember(contentId, content.type, castId);
+        await fetchDetail();
+      },
+    });
   };
 
-  const handleAddEpisode = async (e) => {
+  const openAddEpisodeModal = () => {
+    setEditingEpisodeId(null);
+    setEpisodeForm({ season: 1, episode_number: episodes.length + 1, title: '', description: '', duration_seconds: 3600, is_free: true });
+    setEpisodeFiles({ thumbnail: null, video: null });
+    setUploadProgress({});
+    setModalError(null);
+    setShowEpisodeModal(true);
+  };
+
+  const openEditEpisodeModal = episode => {
+    setEditingEpisodeId(episode.id || episode._id);
+    setEpisodeForm({
+      season: episode.season || 1,
+      episode_number: episode.episode_number || 1,
+      title: episode.title || '',
+      description: episode.description || '',
+      duration_seconds: episode.duration_seconds || 3600,
+      is_free: episode.is_free !== false,
+      price_tvod: episode.price_tvod || 0,
+      status: episode.status || 'published',
+      aired_date: episode.aired_date || '',
+    });
+    setEpisodeFiles({ thumbnail: null, video: null });
+    setUploadProgress({});
+    setModalError(null);
+    setShowEpisodeModal(true);
+  };
+
+  const handleSaveEpisode = async (e) => {
     e.preventDefault();
     try {
       setModalLoading(true);
       setModalError(null);
       setUploadProgress({});
-      await contentService.addEpisodeWithUploads(contentId, episodeForm, episodeFiles, (key, progress) => {
-        setUploadProgress(p => ({ ...p, [key]: progress }));
-      });
+      if (editingEpisodeId) {
+        await contentService.updateEpisode(contentId, editingEpisodeId, episodeForm);
+      } else {
+        await contentService.addEpisodeWithUploads(contentId, episodeForm, episodeFiles, (key, progress) => {
+          setUploadProgress(p => ({ ...p, [key]: progress }));
+        });
+      }
       setShowEpisodeModal(false);
+      setEditingEpisodeId(null);
       setEpisodeFiles({ thumbnail: null, video: null });
       fetchDetail();
     } catch (err) {
@@ -195,15 +262,27 @@ export function ContentDetailSection({ onNavigate, contentId }) {
   };
 
   const handleDeleteEpisode = async (episodeId) => {
-    if (!confirm('Archive this episode?')) return;
+    setConfirmDelete({
+      title: 'Delete episode?',
+      message: 'This episode will be moved to archived content.',
+      confirmLabel: 'Delete',
+      action: async () => {
+        await contentService.deleteEpisode(contentId, episodeId);
+        await fetchDetail();
+      },
+    });
+  };
+
+  const runConfirmDelete = async () => {
+    if (!confirmDelete?.action) return;
     try {
-      setLoading(true);
-      await contentService.deleteEpisode(contentId, episodeId);
-      fetchDetail();
+      setConfirmLoading(true);
+      await confirmDelete.action();
+      setConfirmDelete(null);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Delete failed');
     } finally {
-      setLoading(false);
+      setConfirmLoading(false);
     }
   };
 
@@ -245,9 +324,18 @@ export function ContentDetailSection({ onNavigate, contentId }) {
           </div>
           <div className="ph-right">
             {content && (
-              <button className="btn btn-primary btn-sm" onClick={openEditModal}>
-                <Edit2 size={13}/>Edit
-              </button>
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={handleStatusToggle} disabled={loading || content.status === 'archived'}>
+                  {content.status === 'published' ? <Clock size={13}/> : <Eye size={13}/>}
+                  {content.status === 'published' ? 'Set Draft' : 'Publish'}
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={openEditModal}>
+                  <Edit2 size={13}/>Edit
+                </button>
+                <button className="btn btn-danger btn-sm" onClick={requestDeleteContent} disabled={loading || content.status === 'archived'}>
+                  <Trash2 size={13}/>Delete
+                </button>
+              </>
             )}
             <button className="btn btn-secondary btn-sm" onClick={fetchDetail} disabled={loading || !contentId}>
               <RefreshCw size={13} className={loading ? 'spin-icon' : ''}/>Refresh
@@ -342,7 +430,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
               <div className="card">
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
                   <div className="card-title">Episodes</div>
-                  <button className="btn btn-primary btn-sm" onClick={() => setShowEpisodeModal(true)}><Plus size={14}/>Add Episode</button>
+                  <button className="btn btn-primary btn-sm" onClick={openAddEpisodeModal}><Plus size={14}/>Add Episode</button>
                 </div>
                 {episodes.length ? (
                   <div className="list">
@@ -353,9 +441,14 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                           <div className="row-title">{episode.title || `Episode ${index + 1}`}</div>
                           <div className="row-sub">{durationLabel(episode.duration_seconds)}</div>
                         </div>
-                        <button className="btn btn-ghost btn-icon btn-sm" style={{color:'#ef4444'}} onClick={() => handleDeleteEpisode(episode.id || episode._id)}>
-                          <Trash2 size={13}/>
-                        </button>
+                        <div style={{display:'flex',gap:6}}>
+                          <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEditEpisodeModal(episode)} title="Edit episode">
+                            <Edit2 size={13}/>
+                          </button>
+                          <button className="btn btn-ghost btn-icon btn-sm" style={{color:'#ef4444'}} onClick={() => handleDeleteEpisode(episode.id || episode._id)} title="Delete episode">
+                            <Trash2 size={13}/>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -410,7 +503,16 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                 <div className="form-grid-3">
                   <div className="fg"><label className="lbl">Director / Artist</label><input className="inp" value={editForm.director} onChange={e => setEditForm({...editForm, director: e.target.value})}/></div>
                   <div className="fg"><label className="lbl">Release Year</label><input type="number" className="inp" value={editForm.release_year} onChange={e => setEditForm({...editForm, release_year: e.target.value})}/></div>
-                  <div className="fg"><label className="lbl">Rating</label><input className="inp" value={editForm.rating} onChange={e => setEditForm({...editForm, rating: e.target.value})}/></div>
+                  <div className="fg"><label className="lbl">Rating</label><CustomSelect className="inp" value={editForm.rating} onChange={value => setEditForm({...editForm, rating: value})} options={['U','UA','A','S']} /></div>
+                </div>
+                <div className="fg" style={{maxWidth:220}}>
+                  <label className="lbl">Status</label>
+                  <CustomSelect className="inp" value={editForm.status} onChange={value => setEditForm({...editForm, status: value})} options={[
+                    { value: 'draft', label: 'Draft' },
+                    { value: 'processing', label: 'Processing' },
+                    { value: 'published', label: 'Published' },
+                    { value: 'archived', label: 'Archived' },
+                  ]} />
                 </div>
                 {content?.type !== 'show' && (
                   <div className="form-grid-2">
@@ -474,8 +576,8 @@ export function ContentDetailSection({ onNavigate, contentId }) {
       {showEpisodeModal && (
         <div className="modal-bg" onClick={e => e.target === e.currentTarget && setShowEpisodeModal(false)}>
           <div className="modal-box" style={{maxWidth:500}}>
-            <div className="modal-hdr"><h3>Add Episode</h3><button className="modal-close" onClick={() => setShowEpisodeModal(false)}><X size={15}/></button></div>
-            <form onSubmit={handleAddEpisode}>
+            <div className="modal-hdr"><h3>{editingEpisodeId ? 'Edit Episode' : 'Add Episode'}</h3><button className="modal-close" onClick={() => setShowEpisodeModal(false)}><X size={15}/></button></div>
+            <form onSubmit={handleSaveEpisode}>
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
                 <div className="form-grid-2">
                   <div className="fg"><label className="lbl">Season</label><input type="number" className="inp" value={episodeForm.season} onChange={e => setEpisodeForm({...episodeForm, season: Number(e.target.value)})}/></div>
@@ -493,15 +595,23 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                     </div>
                   </div>
                 </div>
-                <div className="form-grid-2">
-                  <UploadInput label="Thumbnail" accept="image/*" file={episodeFiles.thumbnail} progress={uploadProgress.thumbnail} onFile={file => setEpisodeFiles(p => ({ ...p, thumbnail: file }))} />
-                  <UploadInput label="Episode Video" accept="video/*" file={episodeFiles.video} progress={uploadProgress.video} onFile={file => setEpisodeFiles(p => ({ ...p, video: file }))} />
-                </div>
+                {editingEpisodeId && (
+                  <div className="form-grid-2">
+                    <div className="fg"><label className="lbl">Status</label><CustomSelect className="inp" value={episodeForm.status} onChange={value => setEpisodeForm({...episodeForm, status: value})} options={['draft','published','archived']} /></div>
+                    <div className="fg"><label className="lbl">Aired Date</label><input type="date" className="inp" value={episodeForm.aired_date || ''} onChange={e => setEpisodeForm({...episodeForm, aired_date: e.target.value})}/></div>
+                  </div>
+                )}
+                {!editingEpisodeId && (
+                  <div className="form-grid-2">
+                    <UploadInput label="Thumbnail" accept="image/*" file={episodeFiles.thumbnail} progress={uploadProgress.thumbnail} onFile={file => setEpisodeFiles(p => ({ ...p, thumbnail: file }))} />
+                    <UploadInput label="Episode Video" accept="video/*" file={episodeFiles.video} progress={uploadProgress.video} onFile={file => setEpisodeFiles(p => ({ ...p, video: file }))} />
+                  </div>
+                )}
                 {modalError && <div className="api-error" style={{margin:0}}><AlertCircle size={14}/>{modalError}</div>}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowEpisodeModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={modalLoading}>{modalLoading ? 'Saving...' : 'Add Episode'}</button>
+                <button type="submit" className="btn btn-primary" disabled={modalLoading}>{modalLoading ? 'Saving...' : editingEpisodeId ? 'Save Episode' : 'Add Episode'}</button>
               </div>
             </form>
           </div>
@@ -544,6 +654,16 @@ export function ContentDetailSection({ onNavigate, contentId }) {
           </div>
         </div>
       )}
+
+      <ConfirmDeleteDialog
+        open={!!confirmDelete}
+        title={confirmDelete?.title}
+        message={confirmDelete?.message}
+        confirmLabel={confirmDelete?.confirmLabel}
+        loading={confirmLoading}
+        onCancel={() => !confirmLoading && setConfirmDelete(null)}
+        onConfirm={runConfirmDelete}
+      />
 
       <style>{`
         ${PAGE_STYLES}

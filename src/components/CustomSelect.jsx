@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 
 const normalizeOptions = options => options.map(option => (
   typeof option === 'string' ? { value: option, label: option } : option
@@ -25,24 +24,53 @@ export function CustomSelect({ value, options = [], onChange, className = '', di
     setOpen(false);
   };
 
+  const handleTriggerKeyDown = event => {
+    if (disabled) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setOpen(v => !v);
+    }
+    if (event.key === 'Escape') setOpen(false);
+  };
+
+  const handleOptionKeyDown = (event, item) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      select(item);
+    }
+    if (event.key === 'Escape') setOpen(false);
+  };
+
   return (
     <div ref={ref} className={`custom-select ${className} ${open ? 'open' : ''} ${disabled ? 'disabled' : ''}`}>
-      <button type="button" className="custom-select-trigger" disabled={disabled} onClick={() => setOpen(v => !v)}>
+      <div
+        className="custom-select-trigger"
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-disabled={disabled}
+        onClick={() => !disabled && setOpen(v => !v)}
+        onKeyDown={handleTriggerKeyDown}
+      >
         <span>{selected?.label || 'Select'}</span>
-        <ChevronDown size={14} />
-      </button>
+        <div className="custom-select-chevron" aria-hidden="true" />
+      </div>
       {open && (
-        <div className="custom-select-menu">
+        <div className="custom-select-menu" role="listbox">
           {items.map(item => (
-            <button
-              type="button"
+            <div
               key={item.value}
               className={`custom-select-option ${item.value === value ? 'selected' : ''}`}
-              disabled={item.disabled}
+              role="option"
+              tabIndex={item.disabled ? -1 : 0}
+              aria-selected={item.value === value}
+              aria-disabled={item.disabled}
               onClick={() => select(item)}
+              onKeyDown={event => handleOptionKeyDown(event, item)}
             >
               {item.label}
-            </button>
+            </div>
           ))}
         </div>
       )}
