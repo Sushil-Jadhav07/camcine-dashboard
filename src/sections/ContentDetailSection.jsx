@@ -62,6 +62,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
   const [editingEpisodeId, setEditingEpisodeId] = useState(null);
   const [episodeFiles, setEpisodeFiles] = useState({ thumbnail: null, video: null });
   const [assetFiles, setAssetFiles] = useState({ audio_hq: null, audio_lq: null, lyrics: null });
+  const [imageFiles, setImageFiles] = useState({ poster: null, thumbnail: null });
   const [assetType, setAssetType] = useState('audio'); // 'audio' or 'lyrics'
   const [uploadProgress, setUploadProgress] = useState({});
 
@@ -98,12 +99,15 @@ export function ContentDetailSection({ onNavigate, contentId }) {
   const genres = asArray(content?.genre);
   const Icon = typeIcon[content?.type] || Film;
   const poster = content?.poster_url || content?.thumbnail_url || content?.image_url;
+  const imageUploads = asArray(content?.images?.uploads);
   const stats = { ...(content?.stats || content?.analytics || {}), ...viewStats };
   const tabs = content?.type === 'show' 
     ? ['overview', 'cast', 'episodes'] 
     : content?.type === 'song' 
       ? ['overview', 'cast', 'assets'] 
-      : ['overview', 'cast'];
+      : content?.type === 'movie'
+        ? ['overview', 'cast', 'images']
+        : ['overview', 'cast'];
 
   // Handlers
   const openEditModal = () => {
@@ -317,6 +321,42 @@ export function ContentDetailSection({ onNavigate, contentId }) {
     }
   };
 
+  const handleUploadImageAsset = async (kind) => {
+    const file = imageFiles[kind];
+    if (!file) {
+      setModalError(`Select a ${kind} image first.`);
+      return;
+    }
+
+    try {
+      setModalLoading(true);
+      setModalError(null);
+      setUploadProgress(p => ({ ...p, [kind]: 0 }));
+
+      const upload = await contentService.uploadImage(
+        file,
+        contentId,
+        content.type,
+        progress => setUploadProgress(p => ({ ...p, [kind]: progress })),
+        kind,
+      );
+      const url = upload.url || upload.data?.public_url || upload.data?.publicUrl;
+      if (!url) throw new Error(`${kind} upload did not return a URL.`);
+
+      await contentService.attachMediaUrls(contentId, {
+        type: content.type,
+        [`${kind}_url`]: url,
+      });
+      setImageFiles(p => ({ ...p, [kind]: null }));
+      setUploadProgress(p => ({ ...p, [kind]: undefined }));
+      await fetchDetail();
+    } catch (err) {
+      setModalError(err.message || `Failed to upload ${kind} image`);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   return (
     <div className={`page ${visible ? 'visible' : ''}`}>
       <div className="page-inner">
@@ -487,6 +527,51 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                     <button className="btn btn-secondary btn-sm" onClick={() => { setAssetType('lyrics'); setShowAssetModal(true); }}><Upload size={13}/>Upload Lyrics</button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'images' && (
+              <div className="card">
+                <div className="card-title">Images</div>
+                <div className="image-manage-grid">
+                  <ImageAssetPanel
+                    label="Poster Image"
+                    url={content.poster_url}
+                    file={imageFiles.poster}
+                    progress={uploadProgress.poster}
+                    loading={modalLoading}
+                    onFile={file => setImageFiles(p => ({ ...p, poster: file }))}
+                    onUpload={() => handleUploadImageAsset('poster')}
+                  />
+                  <ImageAssetPanel
+                    label="Thumbnail Image"
+                    url={content.thumbnail_url}
+                    file={imageFiles.thumbnail}
+                    progress={uploadProgress.thumbnail}
+                    loading={modalLoading}
+                    onFile={file => setImageFiles(p => ({ ...p, thumbnail: file }))}
+                    onUpload={() => handleUploadImageAsset('thumbnail')}
+                  />
+                </div>
+                {imageUploads.length > 0 && (
+                  <div className="image-upload-history">
+                    <div className="info-label">Stored Image Uploads</div>
+                    <div className="list" style={{marginTop:10}}>
+                      {imageUploads.map(upload => (
+                        <div className="list-row" key={upload.id || upload.public_url}>
+                          <div className="upload-thumb">
+                            {upload.public_url ? <img src={upload.public_url} alt={upload.original_name || upload.file_name || 'Upload'} /> : <Film size={16}/>}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div className="row-title">{upload.original_name || upload.file_name || 'Image upload'}</div>
+                            <div className="row-sub">{upload.mime_type || 'image'} - {upload.status || 'uploaded'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {modalError && <div className="api-error" style={{marginTop:16,marginBottom:0}}><AlertCircle size={14}/>{modalError}</div>}
               </div>
             )}
           </>
@@ -715,6 +800,13 @@ export function ContentDetailSection({ onNavigate, contentId }) {
         .avatar,.episode-num{width:34px;height:34px;border-radius:10px;background:rgba(204,26,26,.15);border:1px solid rgba(204,26,26,.25);display:flex;align-items:center;justify-content:center;color:#ff8080;font-weight:800}
         .row-title{font-size:13px;font-weight:700;color:#f5f5f5}
         .row-sub{font-size:12px;color:rgba(255,255,255,.36);margin-top:3px}
+        .image-manage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+        .image-panel{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px}
+        .image-preview{aspect-ratio:16/10;border-radius:10px;background:#101010;border:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;overflow:hidden;color:rgba(255,255,255,.3)}
+        .image-preview img{width:100%;height:100%;object-fit:cover}
+        .image-upload-history{margin-top:18px}
+        .upload-thumb{width:44px;height:44px;border-radius:8px;background:#101010;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;overflow:hidden;color:rgba(255,255,255,.3);flex-shrink:0}
+        .upload-thumb img{width:100%;height:100%;object-fit:cover}
         .modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
         .modal-box{background:#141414;border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.5);animation:modalIn .3s ease-out;scrollbar-width:none;-ms-overflow-style:none}
         .modal-box::-webkit-scrollbar{display:none;width:0;height:0}
@@ -729,9 +821,27 @@ export function ContentDetailSection({ onNavigate, contentId }) {
         .upload-line{margin-top:8px;height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
         .upload-line-fill{height:100%;background:#4ade80;border-radius:inherit;transition:width .2s ease}
         .upload-percent{font-size:11px;color:rgba(255,255,255,.42);margin-top:5px}
-        @media(max-width:900px){.detail-hero{grid-template-columns:1fr}.poster{max-width:240px}.quick-grid,.detail-grid{grid-template-columns:1fr 1fr}}
+        @media(max-width:900px){.detail-hero{grid-template-columns:1fr}.poster{max-width:240px}.quick-grid,.detail-grid,.image-manage-grid{grid-template-columns:1fr 1fr}}
+        @media(max-width:700px){.image-manage-grid{grid-template-columns:1fr}}
         @media(max-width:560px){.quick-grid,.detail-grid{grid-template-columns:1fr}}
       `}</style>
+    </div>
+  );
+}
+
+function ImageAssetPanel({ label, url, file, progress, loading, onFile, onUpload }) {
+  return (
+    <div className="image-panel">
+      <div>
+        <div className="info-label">{label}</div>
+        <div className="image-preview" style={{marginTop:8}}>
+          {url ? <img src={url} alt={label} /> : <Film size={24}/>}
+        </div>
+      </div>
+      <UploadInput label={`New ${label}`} accept="image/jpeg,image/png,image/webp" file={file} progress={progress} onFile={onFile} />
+      <button type="button" className="btn btn-secondary btn-sm" disabled={loading || !file} onClick={onUpload}>
+        <Upload size={13}/>Reupload {label}
+      </button>
     </div>
   );
 }
