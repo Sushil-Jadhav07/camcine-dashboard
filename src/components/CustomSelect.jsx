@@ -8,7 +8,7 @@ export function CustomSelect({ value, options = [], onChange, className = '', di
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const items = normalizeOptions(options);
-  const selected = items.find(item => item.value === value) || items[0];
+  const selected = items.find(item => item.value === value);
 
   useEffect(() => {
     const close = event => {

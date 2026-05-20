@@ -527,12 +527,15 @@ export const contentService = {
     }
   },
 
-  async uploadImage(file, contentId, contentType = 'movie', onProgress) {
+  async uploadImage(file, contentId, contentType = 'movie', onProgress, uploadType = 'thumbnail') {
     try {
-      return await this.directUpload(file, 'thumbnail', contentType, onProgress);
+      return await this.directUpload(file, uploadType, contentType, onProgress);
     } catch (error) {
+      if (uploadType === 'poster' && error instanceof ApiError) {
+        return await this.directUpload(file, 'thumbnail', contentType, onProgress);
+      }
       if (error instanceof ApiError) throw error;
-      throw new ApiError('Thumbnail upload failed.');
+      throw new ApiError(`${uploadType === 'poster' ? 'Poster' : 'Thumbnail'} upload failed.`);
     }
   },
 

@@ -31,6 +31,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
     rating: 'U', is_free: true, price_tvod: 0, duration_seconds: '',
   });
   const [posterFile, setPosterFile] = useState(null);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
   const [trailerFile, setTrailerFile] = useState(null);
   const [visible, setVisible] = useState(false);
@@ -60,7 +61,7 @@ export function AddTitleSection({ onNavigate, titleType }) {
         type: apiType,
         description: form.description.trim(),
         language: form.language,
-        country: apiType === 'movie' ? form.country : undefined,
+        country: form.country,
         genre: form.genre,
         director: form.director.trim() || undefined,
         release_year: Number(form.release_year),
@@ -81,12 +82,22 @@ export function AddTitleSection({ onNavigate, titleType }) {
           posterFile,
           null,
           apiType,
-          progress => setUploadProgress(p => ({ ...p, poster: progress }))
+          progress => setUploadProgress(p => ({ ...p, poster: progress })),
+          'poster'
         );
-        if (upload.url) {
-          uploadedMedia.poster_url = upload.url;
-          uploadedMedia.thumbnail_url = upload.url;
-        }
+        if (upload.url) uploadedMedia.poster_url = upload.url;
+      }
+
+      if (thumbnailFile) {
+        setUploadPhase('Uploading thumbnail...');
+        const upload = await contentService.uploadImage(
+          thumbnailFile,
+          null,
+          apiType,
+          progress => setUploadProgress(p => ({ ...p, thumbnail: progress })),
+          'thumbnail'
+        );
+        if (upload.url) uploadedMedia.thumbnail_url = upload.url;
       }
 
       if (trailerFile) {
@@ -184,12 +195,10 @@ export function AddTitleSection({ onNavigate, titleType }) {
                       <label className="lbl">Language</label>
                       <CustomSelect className="inp" value={form.language} onChange={value => setF('language', value)} options={languages} />
                     </div>
-                    {apiType === 'movie' && (
-                      <div className="fg">
-                        <label className="lbl">Country</label>
-                        <CustomSelect className="inp" value={form.country} onChange={value => setF('country', value)} options={countries} />
-                      </div>
-                    )}
+                    <div className="fg">
+                      <label className="lbl">Country</label>
+                      <CustomSelect className="inp" value={form.country} onChange={value => setF('country', value)} options={countries} />
+                    </div>
                     <div className="fg">
                       <label className="lbl">Rating</label>
                       <CustomSelect className="inp" value={form.rating} onChange={value => setF('rating', value)} options={ratings} />
@@ -278,6 +287,13 @@ export function AddTitleSection({ onNavigate, titleType }) {
                     file={posterFile}
                     onFile={setPosterFile}
                     progress={uploadProgress.poster}
+                  />
+                  <FileUploadField
+                    label="Thumbnail Image (JPG/PNG/WEBP)"
+                    accept="image/jpeg,image/png,image/webp"
+                    file={thumbnailFile}
+                    onFile={setThumbnailFile}
+                    progress={uploadProgress.thumbnail}
                   />
                   {!isSong && (
                     <FileUploadField

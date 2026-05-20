@@ -6,7 +6,8 @@ import { CustomSelect } from '../components/CustomSelect.jsx';
 import { ConfirmDeleteDialog } from '../components/ConfirmDeleteDialog.jsx';
 
 const genres = ['Music', 'Pop', 'Hip-Hop', 'R&B', 'Electronic', 'Rock', 'Indie', 'Classical', 'Jazz'];
-const emptyForm = { title: '', artist: '', album: '', genre: 'Music', duration: '' };
+const countries = ['India','United States','United Kingdom','Canada','Australia','United Arab Emirates','Other'];
+const emptyForm = { title: '', artist: '', album: '', country: 'India', genre: 'Music', duration: '' };
 
 function parseDuration(value) {
   if (!value) return undefined;
@@ -63,6 +64,7 @@ export function SongsSection({ onNavigate, onSelectContent }) {
       title: song.title || '',
       artist: song.director || '',
       album: song.album || '',
+      country: song.country || 'India',
       genre: Array.isArray(song.genre) ? song.genre[0] || 'Music' : song.genre || 'Music',
       duration: song.duration_seconds ? durationLabel(song.duration_seconds) : '',
     });
@@ -86,6 +88,7 @@ export function SongsSection({ onNavigate, onSelectContent }) {
         type: 'song',
         description: [form.artist, form.album].filter(Boolean).join(' - '),
         language: 'Hindi',
+        country: form.country,
         genre: [form.genre],
         director: form.artist.trim() || undefined,
         release_year: new Date().getFullYear(),
@@ -143,14 +146,15 @@ export function SongsSection({ onNavigate, onSelectContent }) {
 
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Song</th><th>Artist</th><th>Genre</th><th>Duration</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
+            <thead><tr><th>Song</th><th>Artist</th><th>Country</th><th>Genre</th><th>Duration</th><th>Status</th><th style={{textAlign:'right'}}>Actions</th></tr></thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6}><div className="loader"><span className="spin"/>Loading songs...</div></td></tr>
+                <tr><td colSpan={7}><div className="loader"><span className="spin"/>Loading songs...</div></td></tr>
               ) : songs.length ? songs.map(song => (
                 <tr key={song.id || song._id}>
                   <td><div style={{fontWeight:700,fontSize:13}}>{song.title}</div><div style={{fontSize:11,color:'rgba(255,255,255,.35)'}}>{song.description}</div></td>
                   <td style={{fontSize:13,color:'rgba(255,255,255,.55)'}}>{song.director || 'N/A'}</td>
+                  <td style={{fontSize:13,color:'rgba(255,255,255,.55)'}}>{song.country || 'N/A'}</td>
                   <td><span className="badge b-gray">{Array.isArray(song.genre) ? song.genre[0] : song.genre || 'Music'}</span></td>
                   <td style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:4}}><Clock size={11}/>{durationLabel(song.duration_seconds)}</td>
                   <td><span className={`badge ${song.status === 'published' ? 'b-green' : 'b-yellow'}`}>{song.status || 'draft'}</span></td>
@@ -161,7 +165,7 @@ export function SongsSection({ onNavigate, onSelectContent }) {
                   </div></td>
                 </tr>
               )) : (
-                <tr><td colSpan={6}><div className="empty"><Music size={32}/><p>No songs found</p></div></td></tr>
+                <tr><td colSpan={7}><div className="empty"><Music size={32}/><p>No songs found</p></div></td></tr>
               )}
             </tbody>
           </table>
@@ -178,6 +182,10 @@ export function SongsSection({ onNavigate, onSelectContent }) {
                 <div className="form-grid-2">
                   <div className="fg"><label className="lbl">Artist</label><input className="inp" value={form.artist} onChange={e => setF('artist', e.target.value)}/></div>
                   <div className="fg"><label className="lbl">Album</label><input className="inp" value={form.album} onChange={e => setF('album', e.target.value)}/></div>
+                </div>
+                <div className="fg">
+                  <label className="lbl">Country</label>
+                  <CustomSelect className="inp" value={form.country} onChange={value => setF('country', value)} options={countries} />
                 </div>
                 <div className="form-grid-2">
                   <div className="fg"><label className="lbl">Genre</label><CustomSelect className="inp" value={form.genre} onChange={value => setF('genre', value)} options={genres} /></div>

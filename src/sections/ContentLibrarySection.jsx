@@ -186,8 +186,8 @@ export function ContentLibrarySection({ onNavigate, userRole, onSelectContent })
             {items.map(c => (
               <div key={c.id} className="cl-card" onClick={() => openDetail(c.id)}>
                 <div className="cl-thumb">
-                  {c.poster_url
-                    ? <img src={c.poster_url} alt={c.title} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                  {c.thumbnail_url || c.poster_url
+                    ? <img src={c.thumbnail_url || c.poster_url} alt={c.title} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
                     : <div className="cl-thumb-bg">{c.title?.[0] || '?'}</div>
                   }
                   <div className="cl-thumb-overlay">

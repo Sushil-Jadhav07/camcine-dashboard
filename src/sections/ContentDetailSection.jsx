@@ -111,7 +111,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
       title: content?.title || '',
       description: content?.description || '',
       language: content?.language || '',
-      country: content?.country || '',
+      country: content?.country || countries[0],
       genre: asArray(content?.genre).join(', '),
       director: content?.director || '',
       release_year: content?.release_year || '',
@@ -135,7 +135,7 @@ export function ContentDetailSection({ onNavigate, contentId }) {
         title: editForm.title.trim(),
         description: editForm.description.trim(),
         language: editForm.language.trim() || undefined,
-        country: content.type === 'movie' ? editForm.country.trim() || undefined : undefined,
+        country: editForm.country.trim() || undefined,
         genre: editForm.genre.split(',').map(item => item.trim()).filter(Boolean),
         director: editForm.director.trim() || undefined,
         release_year: editForm.release_year ? Number(editForm.release_year) : undefined,
@@ -146,9 +146,10 @@ export function ContentDetailSection({ onNavigate, contentId }) {
         price_tvod: editForm.is_free ? 0 : Number(editForm.price_tvod || 0),
       };
       Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
-      await contentService.updateContent(contentId, payload);
+      const updated = await contentService.updateContent(contentId, payload);
+      if (updated?.data) setContent(normalizeContent(updated.data));
       setShowEditModal(false);
-      fetchDetail();
+      await fetchDetail();
     } catch (err) {
       setModalError(err.message || 'Failed to update content');
     } finally {
@@ -505,12 +506,10 @@ export function ContentDetailSection({ onNavigate, contentId }) {
                   <div className="fg"><label className="lbl">Language</label><input className="inp" value={editForm.language} onChange={e => setEditForm({...editForm, language: e.target.value})}/></div>
                   <div className="fg"><label className="lbl">Genres</label><input className="inp" value={editForm.genre} onChange={e => setEditForm({...editForm, genre: e.target.value})} placeholder="Drama, Action"/></div>
                 </div>
-                {content?.type === 'movie' && (
-                  <div className="fg">
-                    <label className="lbl">Country</label>
-                    <CustomSelect className="inp" value={editForm.country} onChange={value => setEditForm({...editForm, country: value})} options={countries} />
-                  </div>
-                )}
+                <div className="fg">
+                  <label className="lbl">Country</label>
+                  <CustomSelect className="inp" value={editForm.country} onChange={value => setEditForm({...editForm, country: value})} options={countries} />
+                </div>
                 <div className="form-grid-3">
                   <div className="fg"><label className="lbl">Director / Artist</label><input className="inp" value={editForm.director} onChange={e => setEditForm({...editForm, director: e.target.value})}/></div>
                   <div className="fg"><label className="lbl">Release Year</label><input type="number" className="inp" value={editForm.release_year} onChange={e => setEditForm({...editForm, release_year: e.target.value})}/></div>
