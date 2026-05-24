@@ -73,13 +73,6 @@ const roleLabels = {
   [UserRole.ACTOR]:   'Actor',
 };
 
-const roleBadgeColors = {
-  [UserRole.ADMIN]:   { bg: 'rgba(204,26,26,0.15)',   color: '#ff6b6b', border: 'rgba(204,26,26,0.30)' },
-  [UserRole.MANAGER]: { bg: 'rgba(245,158,11,0.12)',  color: '#fbbf24', border: 'rgba(245,158,11,0.25)' },
-  [UserRole.USER]:    { bg: 'rgba(59,130,246,0.12)',  color: '#60a5fa', border: 'rgba(59,130,246,0.25)' },
-  [UserRole.ACTOR]:   { bg: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: 'rgba(139,92,246,0.25)' },
-};
-
 const groupLabels = {
   main:   'Main',
   manage: 'Manage',
@@ -95,8 +88,6 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
     onNavigate(section);
     setIsMobileMenuOpen(false);
   };
-
-  const badgeStyle = userRole ? roleBadgeColors[userRole] : null;
 
   return (
     <>
@@ -134,18 +125,6 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
             <span className="nav-logo-sub">Admin Panel</span>
           </div>
         </div>
-
-        {/* User badge */}
-        {userRole && badgeStyle && (
-          <div className="nav-user-pill" style={{
-            background: badgeStyle.bg,
-            border: `1px solid ${badgeStyle.border}`,
-            color: badgeStyle.color
-          }}>
-            <span className="nav-user-dot" style={{ background: badgeStyle.color }} />
-            {roleLabels[userRole]}
-          </div>
-        )}
 
         <div className="nav-divider" />
 
@@ -253,27 +232,6 @@ export function Navigation({ currentSection, onNavigate, onLogout, userRole, use
           font-weight: 500;
           letter-spacing: 0.06em;
           text-transform: uppercase;
-        }
-
-        /* === USER PILL === */
-        .nav-user-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          margin: 0 20px 16px;
-          padding: 6px 12px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.04em;
-          width: fit-content;
-        }
-
-        .nav-user-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          flex-shrink: 0;
         }
 
         /* === DIVIDER === */
