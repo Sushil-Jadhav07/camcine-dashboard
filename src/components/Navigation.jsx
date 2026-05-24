@@ -16,6 +16,9 @@ import {
   UserCircle,
   Wallet,
   Clock,
+  Ticket,
+  Bookmark,
+  Star,
   ChevronRight
 } from 'lucide-react';
 import { Section, UserRole } from '../constants/sections';
@@ -29,6 +32,9 @@ const adminNavItems = [
   { id: Section.USERS,       label: 'Users',        icon: Users,           group: 'manage' },
   { id: Section.SUBSCRIPTIONS, label: 'Subscriptions', icon: CreditCard,  group: 'manage' },
   { id: Section.PAYMENTS,    label: 'Payments',     icon: Receipt,         group: 'manage' },
+  { id: Section.SUPPORT,     label: 'Support',      icon: Ticket,          group: 'manage' },
+  { id: Section.FEATURED,    label: 'Featured',     icon: Star,            group: 'manage' },
+  { id: Section.WATCHLISTS,  label: 'Watchlists',   icon: Bookmark,        group: 'manage' },
   { id: Section.ANALYTICS,   label: 'Analytics',   icon: BarChart3,       group: 'manage' },
   { id: Section.NOTIFICATIONS, label: 'Notifications', icon: Bell,        group: 'system' },
   { id: Section.SETTINGS,    label: 'Settings',    icon: Settings,        group: 'system' },

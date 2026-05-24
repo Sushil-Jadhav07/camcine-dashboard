@@ -16,6 +16,9 @@ export const Section = {
   USERS: 'users',
   SUBSCRIPTIONS: 'subscriptions',
   PAYMENTS: 'payments',
+  SUPPORT: 'support',
+  WATCHLISTS: 'watchlists',
+  FEATURED: 'featured',
   SETTINGS: 'settings'
 };
 

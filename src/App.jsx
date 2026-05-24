@@ -17,6 +17,9 @@ import { AddTitleTypeSection } from './sections/AddTitleTypeSection';
 import { UsersSection } from './sections/UsersSection';
 import { SubscriptionsSection } from './sections/SubscriptionsSection';
 import { PaymentsSection } from './sections/PaymentsSection';
+import { SupportSection } from './sections/SupportSection';
+import { WatchlistSection } from './sections/WatchlistSection';
+import { FeaturedContentSection } from './sections/FeaturedContentSection';
 import { SettingsSection } from './sections/SettingsSection';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import './App.css';
@@ -35,7 +38,8 @@ const roleSections = {
     Section.DASHBOARD, Section.CONTENT, Section.CONTENT_DETAIL,
     Section.ADD_TITLE_TYPE, Section.ADD_TITLE, Section.ACTOR_QUEUE,
     Section.SONGS, Section.NEWS, Section.USERS, Section.SUBSCRIPTIONS,
-    Section.PAYMENTS, Section.ANALYTICS, Section.SETTINGS, Section.NOTIFICATIONS,
+    Section.PAYMENTS, Section.SUPPORT, Section.WATCHLISTS, Section.FEATURED,
+    Section.ANALYTICS, Section.SETTINGS, Section.NOTIFICATIONS,
   ],
   [UserRole.MANAGER]: [
     Section.DASHBOARD, Section.CONTENT, Section.CONTENT_DETAIL,
@@ -150,6 +154,12 @@ function AppInner() {
         return <SubscriptionsSection />;
       case Section.PAYMENTS:
         return <PaymentsSection />;
+      case Section.SUPPORT:
+        return <SupportSection />;
+      case Section.WATCHLISTS:
+        return <WatchlistSection />;
+      case Section.FEATURED:
+        return <FeaturedContentSection />;
       case Section.SETTINGS:
         return (
           <SettingsSection

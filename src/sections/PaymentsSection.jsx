@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Download, Filter, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, DollarSign, CreditCard, ArrowUpRight, ArrowDownRight, TrendingUp, X, RefreshCw } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { CustomSelect } from '../components/CustomSelect.jsx';
+import { paymentService } from '../services/payments.js';
 
 const mockTxns = [
   { id:'TXN-001234', date:'2024-03-15', customer:'John Smith',    email:'john@email.com',    amount:14.99, status:'completed', method:'Visa ••4242',     plan:'Standard' },
@@ -18,7 +19,8 @@ const statusBadge = { completed:'b-green', pending:'b-yellow', failed:'b-red', r
 const statusFilters = ['All','Completed','Pending','Failed','Refunded'];
 
 export function PaymentsSection() {
-  const [txns] = useState(mockTxns);
+  const [txns, setTxns] = useState(mockTxns);
+  const [stats, setStats] = useState(null);
   const [filtered, setFiltered] = useState(mockTxns);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('All');
@@ -27,7 +29,28 @@ export function PaymentsSection() {
   const [visible, setVisible] = useState(false);
   const PER = 6;
 
-  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
+  useEffect(() => {
+    setTimeout(() => setVisible(true), 80);
+    Promise.allSettled([
+      paymentService.getAll({ limit: 50 }),
+      paymentService.getStats(),
+    ]).then(([txnsResult, statsResult]) => {
+      if (txnsResult.status === 'fulfilled') {
+        const rows = txnsResult.value.data?.transactions || [];
+        setTxns(rows.map(item => ({
+          id: item.id,
+          date: item.created_at ? new Date(item.created_at).toLocaleDateString() : '-',
+          customer: item.user_name || item.user_email || 'Customer',
+          email: item.user_email || '',
+          amount: Number(item.amount || 0),
+          status: item.status,
+          method: item.card_last4 ? `${item.card_brand || 'Card'} **${item.card_last4}` : item.payment_method || item.gateway || '-',
+          plan: item.plan_name || '-',
+        })));
+      }
+      if (statsResult.status === 'fulfilled') setStats(statsResult.value.data);
+    });
+  }, []);
   useEffect(() => {
     let f = txns;
     if (q) f = f.filter(t => `${t.customer} ${t.email} ${t.id}`.toLowerCase().includes(q.toLowerCase()));
@@ -35,7 +58,7 @@ export function PaymentsSection() {
     setFiltered(f); setPage(1);
   }, [q, status, txns]);
 
-  const total = filtered.filter(t=>t.status==='completed').reduce((s,t)=>s+t.amount,0);
+  const total = stats?.total_revenue ?? filtered.filter(t=>t.status==='completed').reduce((s,t)=>s+t.amount,0);
   const totalPages = Math.ceil(filtered.length / PER);
   const paged = filtered.slice((page-1)*PER, page*PER);
 
@@ -58,9 +81,9 @@ export function PaymentsSection() {
         <div className="stats-row">
           {[
             {label:'Total Revenue', value:`$${total.toFixed(2)}`,      icon:DollarSign, cls:''},
-            {label:'Completed',     value:txns.filter(t=>t.status==='completed').length, icon:CheckCircle, cls:''},
-            {label:'Pending',       value:txns.filter(t=>t.status==='pending').length,   icon:Clock, cls:''},
-            {label:'Failed/Refunded',value:txns.filter(t=>['failed','refunded'].includes(t.status)).length, icon:XCircle, cls:''},
+            {label:'Completed',     value:stats?.completed_count ?? txns.filter(t=>t.status==='completed').length, icon:CheckCircle, cls:''},
+            {label:'Pending',       value:stats?.pending_count ?? txns.filter(t=>t.status==='pending').length,   icon:Clock, cls:''},
+            {label:'Failed/Refunded',value:(stats ? Number(stats.failed_count || 0) + Number(stats.refunded_count || 0) : txns.filter(t=>['failed','refunded'].includes(t.status)).length), icon:XCircle, cls:''},
           ].map(({label,value,icon:Icon},i)=>(
             <div key={i} className="sc">
               <div className="sc-icon"><Icon size={20}/></div>

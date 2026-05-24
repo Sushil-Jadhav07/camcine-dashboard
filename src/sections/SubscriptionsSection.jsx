@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Users, CreditCard, Calendar, CheckCircle, XCircle, ChevronLeft, ChevronRight, DollarSign, Star, Zap, Crown, X, TrendingUp } from 'lucide-react';
 import { PAGE_STYLES } from '../lib/pageStyles.js';
 import { CustomSelect } from '../components/CustomSelect.jsx';
+import { subscriptionService } from '../services/subscriptions.js';
 
 const subs = [
   { id:1, name:'John Smith',    email:'john@email.com',    plan:'Premium',  status:'active',    price:19.99, nextBilling:'2024-04-15', autoRenew:true },
@@ -19,6 +20,9 @@ const plans = [
 ];
 
 export function SubscriptionsSection() {
+  const [subscribers, setSubscribers] = useState(subs);
+  const [planRows, setPlanRows] = useState(plans);
+  const [stats, setStats] = useState(null);
   const [filtered, setFiltered] = useState(subs);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('All');
@@ -27,15 +31,48 @@ export function SubscriptionsSection() {
   const [visible, setVisible] = useState(false);
   const PER = 6;
 
-  useEffect(() => { setTimeout(() => setVisible(true), 80); }, []);
   useEffect(() => {
-    let f = subs;
+    setTimeout(() => setVisible(true), 80);
+    Promise.allSettled([
+      subscriptionService.getAll({ limit: 50 }),
+      subscriptionService.getPlans(),
+      subscriptionService.getStats(),
+    ]).then(([subsResult, plansResult, statsResult]) => {
+      if (subsResult.status === 'fulfilled') {
+        const rows = subsResult.value.data?.subscriptions || [];
+        setSubscribers(rows.map(item => ({
+          id: item.id,
+          name: item.user_name || item.user_email || 'Subscriber',
+          email: item.user_email || '',
+          plan: item.plan_name || item.plan_id || 'None',
+          status: item.status,
+          price: Number(item.price_paid || 0),
+          nextBilling: item.expires_at ? new Date(item.expires_at).toLocaleDateString() : '-',
+          autoRenew: Boolean(item.auto_renew),
+        })));
+      }
+      if (plansResult.status === 'fulfilled') {
+        const rows = plansResult.value.data?.plans || [];
+        setPlanRows(rows.map((item, index) => ({
+          id: item.id,
+          name: item.name,
+          price: Number(item.price_monthly || 0),
+          icon: [Star, Zap, Crown][index] || Star,
+          color: ['#3b82f6', '#f59e0b', '#cc1a1a'][index] || '#3b82f6',
+          features: item.features || [],
+        })));
+      }
+      if (statsResult.status === 'fulfilled') setStats(statsResult.value.data);
+    });
+  }, []);
+  useEffect(() => {
+    let f = subscribers;
     if (q) f = f.filter(s => `${s.name} ${s.email}`.toLowerCase().includes(q.toLowerCase()));
     if (status !== 'All') f = f.filter(s => s.status === status.toLowerCase());
     setFiltered(f); setPage(1);
-  }, [q, status]);
+  }, [q, status, subscribers]);
 
-  const mrr = subs.filter(s=>s.status==='active').reduce((t,s)=>t+s.price,0);
+  const mrr = stats?.mrr ?? subscribers.filter(s=>s.status==='active').reduce((t,s)=>t+s.price,0);
   const paged = filtered.slice((page-1)*PER, page*PER);
   const totalPages = Math.ceil(filtered.length/PER);
   const initials = n => n.split(' ').map(w=>w[0]).join('').toUpperCase();
@@ -51,9 +88,9 @@ export function SubscriptionsSection() {
         <div className="stats-row">
           {[
             {label:'Monthly Revenue', value:`$${mrr.toFixed(2)}`, icon:DollarSign},
-            {label:'Active Subs',     value:subs.filter(s=>s.status==='active').length, icon:CheckCircle},
-            {label:'Cancelled',       value:subs.filter(s=>s.status==='cancelled').length, icon:XCircle},
-            {label:'Auto-Renew',      value:subs.filter(s=>s.autoRenew).length, icon:TrendingUp},
+            {label:'Active Subs',     value:stats?.active_count ?? subscribers.filter(s=>s.status==='active').length, icon:CheckCircle},
+            {label:'Cancelled',       value:stats?.cancelled_count ?? subscribers.filter(s=>s.status==='cancelled').length, icon:XCircle},
+            {label:'Auto-Renew',      value:stats?.auto_renew_count ?? subscribers.filter(s=>s.autoRenew).length, icon:TrendingUp},
           ].map(({label,value,icon:Icon},i)=>(
             <div key={i} className="sc"><div className="sc-icon"><Icon size={20}/></div><div><div className="sc-label">{label}</div><div className="sc-value">{value}</div></div></div>
           ))}
@@ -101,9 +138,9 @@ export function SubscriptionsSection() {
 
         {tab === 'plans' && (
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:18}}>
-            {plans.map(p=>{
+            {planRows.map(p=>{
               const Icon = p.icon;
-              const count = subs.filter(s=>s.plan===p.name&&s.status==='active').length;
+              const count = subscribers.filter(s=>s.plan===p.name&&s.status==='active').length;
               return (
                 <div key={p.id} className="card" style={{border:`1px solid ${p.color}22`,position:'relative',overflow:'hidden'}}>
                   <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${p.color},transparent)`}}/>
